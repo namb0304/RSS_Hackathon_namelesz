@@ -3,7 +3,8 @@ import { defineProps, ref, onMounted, computed } from 'vue'
 import { getUserProfile, getChain, likePost } from '../firebase' // ★ likePost をインポート
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
 import { user } from '../store/user' // ★ ユーザー情報をインポート
-import { RouterLink } from 'vue-router'
+// ★ useRouter をインポート
+import { RouterLink, useRouter } from 'vue-router'
 
 const props = defineProps({
   post: {
@@ -11,6 +12,9 @@ const props = defineProps({
     required: true
   }
 })
+
+// ★ router インスタンスを取得
+const router = useRouter()
 
 const authorName = ref('匿名ユーザー')
 const authorAvatar = ref(null)
@@ -77,9 +81,13 @@ const avatarInitial = computed(() => {
   return authorName.value.charAt(0).toUpperCase();
 });
 
+// ★ カードがクリックされたら詳細ページへ遷移する
+const goToDetail = () => {
+  router.push({ name: 'chain', params: { id: props.post.id } })
+}
+
 // 「続ける」ボタンが押された時の処理
-const handleReplyClick = (event) => {
-  event.preventDefault();
+const handleReplyClick = () => {
   // どの投稿への返信かをストアに保存
   replyToPost.value = props.post;
   // モーダルを開く
@@ -93,7 +101,7 @@ const remainingActions = computed(() => {
   return total > shown ? total - shown : 0;
 });
 
-// ★★★ ここからが新しい「いいね」関連の処理です ★★★
+// ★★★ ここからが「いいね」関連の処理です ★★★
 
 // ログイン中のユーザーがいいねした回数を計算する
 const myLikeCount = computed(() => {
@@ -137,7 +145,8 @@ const handleLike = async () => {
 </script>
 
 <template>
-  <div class="card">
+  <!-- ★ カード全体にクリックイベントを追加 -->
+  <div class="card" @click="goToDetail">
     <div class="card-header">
       <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
         <template v-if="!authorAvatar">{{ avatarInitial }}</template>
@@ -178,10 +187,12 @@ const handleLike = async () => {
         </div>
         
         <!-- 残りのアクションがある場合 -->
+        <!-- ★ クリックイベントの伝播を .stop で防ぐ -->
         <RouterLink 
           v-if="remainingActions > 0"
           :to="{ name: 'chain', params: { id: props.post.id } }" 
           class="more-actions-link"
+          @click.stop
         >
           他{{ remainingActions }}件のアクションを見る
         </RouterLink>
@@ -195,19 +206,20 @@ const handleLike = async () => {
     
     <div class="card-footer">
       <div class="metrics">
-        <!-- ★ いいねボタンにクリックイベントを追加 -->
-        <button @click="handleLike" class="like-button" :title="`10回までいいねできます (現在: ${myLikeCount}回)`">
+        <!-- ★ いいねボタンのクリックイベントの伝播を .stop で防ぐ -->
+        <button @click.stop="handleLike" class="like-button" :title="`10回までいいねできます (現在: ${myLikeCount}回)`">
           ❤️ {{ props.post.likeCount || 0 }}
         </button>
         <span class="action-count">🔄 {{ props.post.actionCount || 0 }}</span>
       </div>
-      <button @click="handleReplyClick" class="reply-button">続ける</button>
+      <!-- ★ 続けるボタンのクリックイベントの伝播を .stop で防ぐ -->
+      <button @click.stop="handleReplyClick" class="reply-button">続ける</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* カードのベーススタイル */
+/* ★ カード全体がクリック可能であることを示すカーソルを追加 */
 .card {
   background-color: #fff;
   border-radius: 12px;
@@ -215,6 +227,7 @@ const handleLike = async () => {
   padding: 16px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-bottom: 16px;
+  cursor: pointer;
 }
 
 .card:hover {
@@ -438,3 +451,4 @@ const handleLike = async () => {
   background-color: #EE965F;
 }
 </style>
+
