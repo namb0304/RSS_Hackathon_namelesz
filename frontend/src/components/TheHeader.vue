@@ -18,7 +18,8 @@ const handleLogout = async () => {
 <template>
   <header class="header">
     <div class="logo">
-      <RouterLink to="/">ThanksRelay</RouterLink>
+      <!-- ★★★ ログイン状態に関わらず、ロゴクリックで適切なページへ飛ぶように変更 ★★★ -->
+      <RouterLink :to="user ? '/timeline' : '/'">ThanksRelay</RouterLink>
     </div>
     
     <nav v-if="!user" class="auth-nav">
@@ -27,7 +28,13 @@ const handleLogout = async () => {
     </nav>
 
     <nav v-else class="auth-nav">
-      <RouterLink to="/mypage" class="nav-button mypage-icon">👤</RouterLink> <button @click="handleLogout" class="nav-button logout">ログアウト</button>
+      <!-- ★★★ ここを変更 ★★★ -->
+      <!-- 人マークとユーザー名を両方表示 -->
+      <RouterLink v-if="user" to="/mypage" class="nav-button mypage-link">
+        <span class="mypage-icon">👤</span>
+        <span v-if="user.displayName">{{ user.displayName }}</span>
+      </RouterLink>
+      <button @click="handleLogout" class="nav-button logout">ログアウト</button>
     </nav>
 
   </header>
@@ -91,14 +98,19 @@ const handleLogout = async () => {
 .logout:hover {
     background-color: #c82333;
 }
-.mypage-icon {
-    font-size: 1.5rem;
-    padding: 0.2rem 0.8rem;
+/* ★★★ マイページリンクのスタイルを変更 ★★★ */
+.mypage-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* アイコンと名前の間隔 */
     border: 1px solid #6c757d;
-    color: #6c757d;
+    color: #333;
 }
-.mypage-icon:hover {
-    background-color: #6c757d;
-    color: white;
+.mypage-link:hover {
+    background-color: #e2e6ea;
+}
+.mypage-icon {
+    font-size: 1.2rem;
 }
 </style>
+
