@@ -101,3 +101,69 @@ export const deletePost = async (postId) => {
     console.error("Error deleting document: ", error);
   }
 };
+
+/**
+ * 匿名でサインインする関数
+ * アプリ起動時に一度だけ呼び出す
+ * @returns {Promise<UserCredential>} ユーザー情報
+ */
+export const signIn = async () => {
+  return await signInAnonymously(auth);
+};
+
+/**
+ * ユーザーのログイン状態を監視する関数
+ * ログイン状態が変化するたびに、指定した処理を実行する
+ * @param {function} callback - ユーザー情報を受け取るコールバック関数
+ */
+export const onAuth = (callback) => {
+  // onAuthStateChangedは、ログイン時、ログアウト時、ページ読み込み時にユーザー状態をチェックしてくれる
+  return onAuthStateChanged(auth, (user) => {
+    callback(user); // フロントエンドに現在のユーザー情報を渡す
+  });
+};
+
+/**
+ * 投稿に「いいね」を追加する（likeCountを1増やす）
+ * @param {string} postId - いいねする投稿のID
+ */
+export const likePost = async (postId) => {
+  const docRef = doc(db, "posts", postId);
+  try {
+    // increment(1) を使うことで、安全に数値を1増やすことができる
+    await updateDoc(docRef, {
+      likeCount: increment(1)
+    });
+  } catch (error) {
+    console.error("Error liking post: ", error);
+  }
+};
+
+/**
+ * usersコレクションにユーザー情報を作成・更新する
+ * @param {object} user - Firebase Authから取得したユーザーオブジェクト
+ * @param {object} additionalData - 保存したい追加情報（例: displayName）
+ */
+export const createUserProfile = async (user, additionalData = {}) => {
+  if (!user) return; // ユーザーがなければ何もしない
+
+  const userRef = doc(db, "users", user.uid); // ユーザーIDをドキュメントIDとして利用
+  const userDoc = await getDoc(userRef);
+
+  // まだプロフィールが作成されていなければ、新規作成
+  if (!userDoc.exists()) {
+    const { displayName, email } = user;
+    const createdAt = serverTimestamp();
+    try {
+      await setDoc(userRef, {
+        uid: user.uid,
+        displayName: displayName || '名無しさん',
+        email,
+        createdAt,
+        ...additionalData,
+      });
+    } catch (error) {
+      console.error("Error creating user profile: ", error);
+    }
+  }
+};
