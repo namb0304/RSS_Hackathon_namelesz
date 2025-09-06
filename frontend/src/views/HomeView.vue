@@ -1,28 +1,36 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import ThanksCard from '../components/ThanksCard.vue'
+// ★★★ 作成したモーダルを読み込む ★★★
+import ThanksModal from '../components/ThanksModal.vue'
 import { getThanksPosts } from '../firebase.js'
 
 const posts = ref([])
+// ★★★ モーダルの表示状態を管理する変数 ★★★
+const isModalOpen = ref(false)
 
-onMounted(async () => {
-  // ★★★ この2行を追加 ★★★
-  console.log("これからFirebaseからデータを取得します...")
-  // ★★★ ここまで ★★★
+// 投稿データを取得する処理を関数にまとめる
+const fetchPosts = async () => {
+  posts.value = await getThanksPosts()
+}
 
-  const firebasePosts = await getThanksPosts()
+// ページが表示されたら、まずデータを取得
+onMounted(fetchPosts)
 
-  // ★★★ この1行を追加 ★★★
-  console.log("取得したデータ:", firebasePosts)
-  // ★★★ ここまで ★★★
-
-  posts.value = firebasePosts
-})
+// ★★★ モーダルが正常に閉じられた後の処理 ★★★
+const handleModalClose = () => {
+  isModalOpen.value = false
+  // 投稿後に最新のデータを再取得して、タイムラインを更新
+  fetchPosts()
+}
 </script>
 
 <template>
   <main>
-    <h1>Onde タイムライン</h1>
+    <div class="header">
+      <h1>Onde タイムライン</h1>
+      <button @click="isModalOpen = true" class="btn-post">投稿する</button>
+    </div>
     
     <div class="timeline">
       <ThanksCard 
@@ -31,10 +39,30 @@ onMounted(async () => {
         :post="post" 
       />
     </div>
+
+    <ThanksModal 
+      v-if="isModalOpen" 
+      @close="handleModalClose" 
+    />
   </main>
 </template>
 
 <style scoped>
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.btn-post {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #42b883;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+}
 .timeline {
   margin-top: 20px;
 }
