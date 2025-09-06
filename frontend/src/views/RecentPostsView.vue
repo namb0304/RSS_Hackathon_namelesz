@@ -70,7 +70,7 @@ const handleNewPostClick = () => {
 <style scoped>
 /* ベーススタイル */
 .page-container {
-  background-color: #f0f2f5;
+  background-color: #FEFAF6; /* App.vueの背景色と合わせます */
   min-height: 100vh;
   padding-bottom: 80px;
 }
