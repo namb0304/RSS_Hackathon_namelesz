@@ -50,9 +50,10 @@ export const getThanksPosts = async () => {
 /**
  * 新しいThanksを投稿する関数
  */
-export const addThanksPost = async ({ text, authorId, isAnonymous }) => {
+// ★★★ authorName も受け取るように変更 ★★★
+export const addThanksPost = async ({ text, authorId, authorName, isAnonymous }) => {
   await addDoc(postsCollection, {
-    type: "thanks", text, authorId, isAnonymous,
+    type: "thanks", text, authorId, authorName, isAnonymous,
     timestamp: serverTimestamp(), likeCount: 0, actionCount: 0,
   });
 };
@@ -140,14 +141,14 @@ export const createUserProfile = async (user, additionalData = {}) => {
   const userDoc = await getDoc(userRef);
 
   if (!userDoc.exists()) {
-    const { displayName, email } = user;
+    const { email } = user;
     const createdAt = serverTimestamp();
     await setDoc(userRef, {
       uid: user.uid,
-      displayName: displayName || '名無しさん',
+      // ★★★ additionalDataからdisplayNameを正しく受け取るように修正 ★★★
+      displayName: additionalData.displayName || '名無しさん',
       email,
       createdAt,
-      ...additionalData,
     });
   }
 };
@@ -167,3 +168,17 @@ export const loginWithEmail = async (email, password) => {
 export const logout = async () => {
   return await signOut(auth);
 };
+
+
+// ★★★ この関数をファイルの末尾などに追加 ★★★
+/**
+ * usersコレクションから指定したユーザーのプロフィールを取得する
+ * @param {string} uid - ユーザーID
+ */
+export const getUserProfile = async (uid) => {
+  if (!uid) return null;
+  const userRef = doc(db, "users", uid);
+  const userDoc = await getDoc(userRef);
+  return userDoc.exists() ? userDoc.data() : null;
+};
+
