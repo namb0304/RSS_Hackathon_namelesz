@@ -1,9 +1,8 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { getUserProfile, likePost } from '../firebase'
+import { getUserProfile, getChain } from '../firebase'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
-import { user } from '../store/user'
+import { RouterLink } from 'vue-router'
 
 const props = defineProps({
   post: {
@@ -12,293 +11,378 @@ const props = defineProps({
   }
 })
 
-const router = useRouter()
-
 const authorName = ref('匿名ユーザー')
+const authorAvatar = ref(null)
+const actionPreviews = ref([])
+const isLoadingActions = ref(true)
+
+// 著者のプロフィールをキャッシュするオブジェクト
+const authorProfiles = ref({})
 
 onMounted(async () => {
-  if (props.post.isAnonymous) return
-  if (!props.post.authorId) {
-    authorName.value = '不明なユーザー'
-    return
+  // 投稿者の情報を取得
+  if (!props.post.isAnonymous) {
+    try {
+      const profile = await getUserProfile(props.post.authorId)
+      if (profile) {
+        authorName.value = profile.displayName || '名前未設定のユーザー'
+        authorAvatar.value = profile.photoURL || null
+        authorProfiles.value[props.post.authorId] = profile
+      }
+    } catch (error) {
+      console.error("ユーザープロフィールの取得に失敗:", error)
+    }
   }
-  const profile = await getUserProfile(props.post.authorId)
-  if (profile && profile.displayName) {
-    authorName.value = profile.displayName
+  
+  // NextActionデータの取得（最大2件まで）
+  if (props.post.actionCount > 0) {
+    try {
+      console.log(`Getting chain for post ID: ${props.post.id}`)
+      const actions = await getChain(props.post.id)
+      console.log("Retrieved actions:", actions)
+      
+      if (actions && actions.length > 0) {
+        // 最新の2件を取得
+        actionPreviews.value = actions.slice(0, 2)
+      }
+    } catch (error) {
+      console.error("アクションの取得に失敗:", error)
+    } finally {
+      isLoadingActions.value = false
+    }
   } else {
-    authorName.value = '名前未設定のユーザー'
+    isLoadingActions.value = false
   }
 })
 
 const formatTimestamp = (timestamp) => {
   if (!timestamp || !timestamp.toDate) return '---';
   const date = timestamp.toDate();
-  const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  const now = new Date();
+  
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffMins < 1) return '数秒前';
+  if (diffMins < 60) return `${diffMins}分前`;
+  if (diffHours < 24) return `${diffHours}時間前`;
+  if (diffDays < 7) return `${diffDays}日前`;
+  
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
   return new Intl.DateTimeFormat('ja-JP', options).format(date);
 };
 
-const handleReplyClick = () => {
-  replyToPost.value = props.post
-  isPostFormModalOpen.value = true
-}
-
-const myLikeCount = computed(() => {
-  if (props.post.likesMap && user.value) {
-    return props.post.likesMap[user.value.uid] || 0;
-  }
-  return 0;
+// アバターの頭文字を取得
+const avatarInitial = computed(() => {
+  return authorName.value.charAt(0).toUpperCase();
 });
 
-// ★★★ ここが新しい「いいね」の処理です ★★★
-const handleLike = async () => {
-  if (!user.value) {
-    alert("いいねするにはログインが必要です。");
-    return;
-  }
-  if (myLikeCount.value >= 10) {
-    alert("いいねは一投稿につき10回までです！");
-    return;
-  }
+// 「続ける」ボタンが押された時の処理
+const handleReplyClick = (event) => {
+  event.preventDefault();
+  // どの投稿への返信かをストアに保存
+  replyToPost.value = props.post;
+  // モーダルを開く
+  isPostFormModalOpen.value = true;
+};
 
-  try {
-    // まず、ローカルのデータを先に更新して画面に即時反映させる
-    // 1. 全体のいいね数を1増やす
-    if (props.post.likeCount === undefined) props.post.likeCount = 0;
-    props.post.likeCount++;
-
-    // 2. 自分のいいね数を1増やす
-    if (!props.post.likesMap) props.post.likesMap = {};
-    if (!props.post.likesMap[user.value.uid]) props.post.likesMap[user.value.uid] = 0;
-    props.post.likesMap[user.value.uid]++;
-
-    // 次に、裏側でデータベースの更新を呼び出す
-    await likePost(props.post.id, user.value.uid);
-
-  } catch (error) {
-    console.error("いいね処理中にエラー:", error)
-    // もしエラーが起きたら、画面の表示を元に戻す
-    props.post.likeCount--;
-    props.post.likesMap[user.value.uid]--;
-    alert("いいねに失敗しました。");
-  }
-}
+// 残りのアクション数
+const remainingActions = computed(() => {
+  const total = props.post.actionCount || 0;
+  const shown = actionPreviews.value.length;
+  return total > shown ? total - shown : 0;
+});
 </script>
 
 <template>
-  <div class="thanks-card">
-    <div class="chain-connector">
-      <div class="line top-line" v-if="props.post.type === 'action'"></div>
-      <div class="dot"></div>
-      <div class="line bottom-line" v-if="props.post.actionCount > 0 || props.post.type === 'action'"></div>
-      <div class="line end-line" v-else></div>
+  <div class="card">
+    <div class="card-header">
+      <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
+        <template v-if="!authorAvatar">{{ avatarInitial }}</template>
+      </div>
+      <div class="user-info">
+        <div class="name">{{ authorName }}</div>
+        <div class="id">@{{ authorName.toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
+      </div>
+      <span class="post-type">Thanks</span>
     </div>
-
-    <div class="card-content">
-      <div class="card-header">
-        <span class="post-type" :class="props.post.type">{{ props.post.type === 'thanks' ? 'Thanks' : 'Next Action' }}</span>
-        <span class="timestamp">{{ formatTimestamp(props.post.timestamp) }}</span>
+    
+    <div class="card-body">
+      <p>{{ props.post.text }}</p>
+      <div v-if="props.post.feeling" class="feeling-quote">
+        "{{ props.post.feeling }}"
       </div>
-
-      <RouterLink :to="`/chain/${post.id}`" class="card-link">
-        <p class="post-text">{{ props.post.text }}</p>
-
-        <p v-if="props.post.feeling" class="post-feeling">
-          "{{ props.post.feeling }}"
-        </p>
-
-        <div v-if="props.post.tags && props.post.tags.length > 0" class="post-tags">
-          <span v-for="(tag, index) in props.post.tags" :key="index" class="tag">
-            #{{ tag }}
-          </span>
+      <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
+        <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
+      </div>
+    </div>
+    
+    <div class="branch-preview" v-if="props.post.actionCount > 0">
+      <div class="preview-title">
+        <span class="preview-icon">🔄</span>
+        <span>次のアクション ({{ props.post.actionCount }})</span>
+      </div>
+      
+      <!-- ローディング表示 -->
+      <div v-if="isLoadingActions" class="preview-loading">
+        <div class="loading-spinner"></div>
+        <span>読み込み中...</span>
+      </div>
+      
+      <!-- シンプルなアクションプレビュー -->
+      <div v-else-if="actionPreviews.length > 0" class="action-previews">
+        <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
+          {{ action.text }}
         </div>
-      </RouterLink>
-
-      <div class="card-footer">
-        <span class="author">{{ authorName }}</span>
-          <div class="actions">
-            <button @click="handleLike" class="like-button" :disabled="myLikeCount >= 10" title="10回までいいねできます">
-              ❤️
-              <span class="count">{{ props.post.likeCount || 0 }}</span>
-              <span v-if="myLikeCount > 0" class="my-like-badge">+{{ myLikeCount }}</span>
-            </button>
-            
-            <button @click="handleReplyClick" class="reply-button">
-              続ける
-            </button>
-            </div>
+        
+        <!-- 残りのアクションがある場合 -->
+        <RouterLink 
+          v-if="remainingActions > 0"
+          :to="{ name: 'chain', params: { id: props.post.id } }" 
+          class="more-actions-link"
+        >
+          他{{ remainingActions }}件のアクションを見る
+        </RouterLink>
       </div>
+      
+      <!-- アクションがない場合 -->
+      <div v-else class="no-actions">
+        <p>アクションの読み込みに失敗しました</p>
+      </div>
+    </div>
+    
+    <div class="card-footer">
+      <div class="metrics">
+        <span class="like-button">❤️ {{ props.post.likeCount || 0 }}</span>
+        <span class="action-count">🔄 {{ props.post.actionCount || 0 }}</span>
+      </div>
+      <button @click="handleReplyClick" class="reply-button">続ける</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* 既存のスタイルはそのまま */
-.thanks-card {
-  display: flex;
-  gap: 1.5rem;
+/* カードのベーススタイル */
+.card {
   background-color: #fff;
   border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-  padding: 1.8rem;
-  transition: transform 0.2s ease-in-out;
-  overflow: hidden;
-  border: 1px solid #fdeee0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 16px;
 }
-.thanks-card:hover {
-  transform: translateY(-5px);
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
-.chain-connector {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  padding-top: 6px;
-}
-.dot {
-  width: 10px;
-  height: 10px;
-  background-color: #f7c9aa;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 5px solid #fff;
-  outline: 2px solid #f7c9aa;
-  outline-offset: -2px;
-  box-shadow: 0 0 0 1px #f7c9aa;
-}
-.line {
-  width: 2px;
-  background-color: #fbe5d6;
-}
-.top-line {
-  height: 6rem;
-  margin-bottom: 0.5rem;
-}
-.bottom-line {
-  flex-grow: 1;
-  min-height: 4rem;
-  margin-top: 0.5rem;
-}
-.end-line {
-  height: 12rem;
-  margin-top: 0.5rem;
-}
-.card-content {
-  flex-grow: 1;
-  min-width: 0;
-}
+
+/* カードヘッダー */
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 12px;
 }
-.card-link {
-  text-decoration: none;
-  color: inherit;
-  display: block; /* クリック範囲を広げる */
-}
-.post-type {
-  font-weight: bold;
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-  color: white;
-  font-size: 0.8rem;
-}
-.post-type.thanks { background-color: #ee965fff; }
-.post-type.action { background-color: #6c757d; }
-.timestamp { font-size: 0.85rem; color: #a0a0a0; }
 
-.post-text {
-  font-size: 1.1rem;
-  line-height: 1.7;
-  color: #333;
-  margin-top: 0;
-  margin-bottom: 1rem;
-}
-.post-feeling {
-  font-style: italic;
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f0f0f0;
+  margin-right: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   color: #555;
-  margin: 1.5rem 0;
-  border-left: 3px solid #fdeee0;
-  padding-left: 1rem;
+  font-weight: bold;
+  background-size: cover;
+  background-position: center;
+}
+
+.user-info {
+  flex-grow: 1;
+}
+
+.name {
+  font-weight: bold;
+  color: #333;
   font-size: 1rem;
 }
-.post-tags {
-  margin-bottom: 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.tag {
-  background-color: #f7f7f7;
-  color: #777;
-  padding: 0.3rem 0.7rem;
-  border-radius: 15px;
+
+.id {
+  color: #666;
   font-size: 0.8rem;
 }
+
+.post-type {
+  background-color: #FF8C42;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+/* カード本文 */
+.card-body {
+  margin-bottom: 16px;
+}
+
+.card-body p {
+  color: #333;
+  line-height: 1.5;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.feeling-quote {
+  font-style: italic;
+  color: #555;
+  margin: 12px 0;
+  border-left: 3px solid #FF8C42;
+  padding-left: 12px;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag {
+  background-color: #f0f2f5;
+  color: #666;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+/* ブランチプレビュー */
+.branch-preview {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.preview-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: #444;
+}
+
+.preview-icon {
+  margin-right: 6px;
+}
+
+/* ローディング表示 */
+.preview-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #FF8C42;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* シンプルなアクションプレビュー */
+.action-previews {
+  margin-bottom: 8px;
+}
+
+.action-preview-item {
+  background-color: white;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  line-height: 1.4;
+  border-left: 3px solid #2196F3;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.more-actions-link {
+  display: block;
+  text-align: center;
+  color: #2196F3;
+  font-size: 0.85rem;
+  padding: 6px;
+  text-decoration: none;
+}
+
+.more-actions-link:hover {
+  text-decoration: underline;
+}
+
+.no-actions {
+  text-align: center;
+  padding: 10px;
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* カードフッター */
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f0f0f0;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+  margin-top: 8px;
 }
-.author { font-weight: bold; color: #666; font-size: 0.9rem; }
-.actions { display: flex; gap: 0.8rem; align-items: center; }
+
+.metrics {
+  display: flex;
+  gap: 16px;
+}
+
+.like-button, .action-count {
+  color: #666;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.like-button:hover {
+  color: #e74c3c;
+}
 
 .reply-button {
-  background-color: transparent;
-  color: #ee965f;
-  border: 1px solid #ee965f;
-  border-radius: 20px;
-  padding: 0.4rem 1rem; /* 少し大きく */
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.reply-button:hover { background-color: #ee965f; color: white; }
-
-/* ★★★ いいねボタン用のスタイルを追加 ★★★ */
-.like-button {
-  position: relative; /* バッジの位置の基準 */
-  background-color: #f5f5f5;
-  border: 1px solid #eee;
-  padding: 0.4rem 1rem;
-  border-radius: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-weight: bold;
-  color: #555;
-  transition: all 0.2s;
-}
-.like-button:hover {
-  background-color: #fff2e8;
-  border-color: #fdeee0;
-}
-.like-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background-color: #f5f5f5;
-}
-.like-button .count {
-  color: #e53935;
-}
-.my-like-badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background-color: #dc8144ff;
+  background-color: #FF8C42;
   color: white;
-  font-size: 0.7rem;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 2px solid white;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 16px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.reply-button:hover {
+  background-color: #EE965F;
 }
 </style>
