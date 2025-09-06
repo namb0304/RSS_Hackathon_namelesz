@@ -16,7 +16,10 @@ import {
   updateDoc,
   increment,
   runTransaction ,
-  onSnapshot
+  onSnapshot,
+  limit, // ← これを追加！
+  arrayUnion,
+  arrayRemove
 } from "firebase/firestore";
 
 // .env.localファイルからAPIキーを安全に読み込みます
@@ -58,8 +61,9 @@ export const addThanksPost = async ({ text, feeling, tags, authorId, isAnonymous
     authorId, isAnonymous,
     timestamp: serverTimestamp(),
     likeCount: 0,
-    actionCount: 0, // ← どの投稿にもactionCountを持たせる
-    depth: 0,       // ← Thanksは深さ0
+    actionCount: 0,
+    depth: 0,
+    likedBy: [], // ★★★ likedBy配列を追加 ★★★
   });
 };
 
@@ -67,40 +71,26 @@ export const addThanksPost = async ({ text, feeling, tags, authorId, isAnonymous
 /**
  * Next Action を投稿する関数 (トランザクションの読み書き順序を修正)
  */
+// addNextAction 関数を、この最終版のコードで完全に置き換えてください
+
 export const addNextAction = async ({ text, feeling, tags, authorId, isAnonymous, parentPost }) => {
   const parentPostRef = doc(db, "posts", parentPost.id);
   const rootId = parentPost.type === 'thanks' ? parentPost.id : parentPost.rootPostId;
   const rootPostRef = doc(db, "posts", rootId);
 
   await runTransaction(db, async (transaction) => {
-    // --- 1. まず全ての「読み取り(get)」を先に行う ---
     const parentDoc = await transaction.get(parentPostRef);
     if (!parentDoc.exists()) throw "Parent document does not exist!";
 
     let rootDoc = null;
-    // 親と大元が違う場合のみ、大元のドキュメントも読み取る
     if (parentPost.id !== rootId) {
       rootDoc = await transaction.get(rootPostRef);
       if (!rootDoc.exists()) throw "Root document does not exist!";
     }
 
-    // --- 2. 読み取ったデータを使って、全ての「書き込み(update, set)」を行う ---
-
-    // a. 直接の親のactionCountを1増やす
-    const newParentActionCount = (parentDoc.data().actionCount || 0) + 1;
-    transaction.update(parentPostRef, { actionCount: newParentActionCount });
-
-    // b. (親がThanksでなければ) 大元の投稿のactionCountも1増やす
-    if (rootDoc) { // rootDocを読み取った場合のみ実行
-      const newRootActionCount = (rootDoc.data().actionCount || 0) + 1;
-      transaction.update(rootPostRef, { actionCount: newRootActionCount });
-    }
-
-    // c. 新しいNext Actionを追加
-    const newActionRef = collection(db, 'posts');
-    transaction.set(doc(newActionRef), {
-      type: "action",
-      text, feeling: feeling || null, tags: tags || [],
+    // ★★★ この newActionData に parentAuthorId を含めるのが重要です ★★★
+    const newActionData = {
+      type: "action", text, feeling: feeling || null, tags: tags || [],
       authorId, isAnonymous,
       timestamp: serverTimestamp(),
       likeCount: 0,
@@ -108,7 +98,20 @@ export const addNextAction = async ({ text, feeling, tags, authorId, isAnonymous
       depth: parentDoc.data().depth + 1,
       parentPostId: parentPost.id,
       rootPostId: rootId,
-    });
+      parentAuthorId: parentDoc.data().authorId, // ← これが記録されるようになります！
+      likedBy: [],
+    };
+
+    const newParentActionCount = (parentDoc.data().actionCount || 0) + 1;
+    transaction.update(parentPostRef, { actionCount: newParentActionCount });
+
+    if (rootDoc) {
+      const newRootActionCount = (rootDoc.data().actionCount || 0) + 1;
+      transaction.update(rootPostRef, { actionCount: newRootActionCount });
+    }
+
+    const newActionRef = doc(collection(db, 'posts'));
+    transaction.set(newActionRef, newActionData);
   });
 };
 
@@ -126,12 +129,33 @@ export const getChain = async (postId) => {
 };
 
 /**
- * 投稿に「いいね」を追加する（likeCountを1増やす）
+ * 投稿に「いいね」を追加/削除する（トグル機能）
  */
-export const likePost = async (postId) => {
+export const likePost = async (postId, userId) => {
   const docRef = doc(db, "posts", postId);
-  await updateDoc(docRef, {
-    likeCount: increment(1)
+  
+  // トランザクションで安全にいいね処理を行う
+  await runTransaction(db, async (transaction) => {
+    const postDoc = await transaction.get(docRef);
+    if (!postDoc.exists()) {
+      throw "Document does not exist!";
+    }
+
+    const postData = postDoc.data();
+    // 既にいいねしているかチェック
+    if (postData.likedBy && postData.likedBy.includes(userId)) {
+      // いいね済みなら、IDを削除してカウントを1減らす
+      transaction.update(docRef, {
+        likedBy: arrayRemove(userId),
+        likeCount: increment(-1)
+      });
+    } else {
+      // いいねしてなければ、IDを追加してカウントを1増やす
+      transaction.update(docRef, {
+        likedBy: arrayUnion(userId),
+        likeCount: increment(1)
+      });
+    }
   });
 };
 
@@ -300,4 +324,162 @@ export const getPostChain = async (postId) => {
 
   // depth（階層）でソートして返す
   return posts.sort((a, b) => a.depth - b.depth);
+};
+
+// 既存の fetchRankingPosts 関数を、以下の最終版コードに差し替えてください
+
+/**
+ * 繋いだ数（actionCount）に基づいたランキング投稿を取得する関数【最終版】
+ * @param {string} period - ランキングの集計期間 ('daily', 'weekly', 'monthly')
+ * @returns {Promise<Array>} ランキング順にソートされた投稿の配列
+ */
+export const fetchRankingPosts = async (period) => {
+  const now = new Date();
+  let startDate;
+
+  // ★★★ 期間の計算ロジックをカレンダー基準に修正 ★★★
+  switch (period) {
+    case 'daily':
+      // 「今日」の始まり（午前0時）を計算
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      break;
+    case 'weekly':
+      // 「今週」の始まり（月曜日の午前0時）を計算
+      startDate = new Date(now);
+      const dayOfWeek = now.getDay(); // 0=日, 1=月, ..., 6=土
+      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // 日曜を週初めとする場合は `dayOfWeek`
+      startDate.setDate(diff);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case 'monthly':
+      // 「今月」の始まり（1日の午前0時）を計算
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      break;
+    default:
+      // デフォルトは今日の投稿
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  }
+
+  // クエリ以降の処理は変更ありません
+  const q = query(
+    postsCollection,
+    where("type", "==", "thanks"),
+    where("timestamp", ">=", startDate),
+    orderBy("timestamp", "desc"),
+    limit(50)
+  );
+
+  const querySnapshot = await getDocs(q);
+  const posts = [];
+  querySnapshot.forEach((doc) => {
+    posts.push({ id: doc.id, ...doc.data() });
+  });
+
+  const sortedPosts = posts.sort((a, b) => {
+    const countA = a.actionCount || 0;
+    const countB = b.actionCount || 0;
+    return countB - a.actionCount;
+  });
+
+  return sortedPosts.slice(0, 10);
+};
+
+// この関数を firebase.js の一番下に追加してください
+
+/**
+ * タグまたは内容で投稿を検索する関数
+ * @param {string} queryText - 検索する文字列
+ * @param {string} type - 検索タイプ ('tag' or 'content')
+ * @returns {Promise<Array>} 検索結果の投稿配列
+ */
+export const searchPosts = async (queryText, type) => {
+  // 投稿を新しい順で並べておきます
+  const baseQuery = query(postsCollection, orderBy("timestamp", "desc"));
+  
+  // 1. タグ検索の場合
+  if (type === 'tag') {
+    // Firestoreの 'array-contains' を使って、tags配列に検索文字が含まれるものを探します
+    const searchQuery = query(baseQuery, where("tags", "array-contains", queryText));
+    const querySnapshot = await getDocs(searchQuery);
+    const posts = [];
+    querySnapshot.forEach((doc) => {
+      posts.push({ id: doc.id, ...doc.data() });
+    });
+    return posts;
+  }
+
+  // 2. 内容検索の場合
+  if (type === 'content') {
+    // Firestoreに全文検索はないので、一度全投稿を取得してから絞り込みます
+    // 注意: 投稿数が増えるとパフォーマンスが落ちる可能性があります
+    const querySnapshot = await getDocs(baseQuery);
+    const allPosts = [];
+    querySnapshot.forEach((doc) => {
+      allPosts.push({ id: doc.id, ...doc.data() });
+    });
+
+    // JavaScriptで、投稿のtextに検索文字が含まれるものをフィルタリング
+    const filteredPosts = allPosts.filter(post => 
+      post.text && post.text.toLowerCase().includes(queryText.toLowerCase())
+    );
+    return filteredPosts;
+  }
+  
+  // 該当するタイプがなければ空の配列を返す
+  return [];
+};
+
+// 以下のマイページ用関数を firebase.js の一番下に追加・または確認してください
+
+/**
+ * [マイページ用] 統計情報（リレーした数、された数）を取得【修正版】
+ */
+export const getMyPageStats = async (uid) => {
+  // リレーした数: 自分が他人にしたNext Actionの数
+  const relaysGivenQuery = query(postsCollection, where("authorId", "==", uid), where("type", "==", "action"));
+  const relaysGivenSnap = await getDocs(relaysGivenQuery);
+
+  // リレーされた数: "自分以外の他人"が"自分の投稿"にしてくれたNext Actionの数
+  const relaysReceivedQuery = query(
+    postsCollection,
+    where("parentAuthorId", "==", uid), // 自分の投稿へのActionで、
+    where("authorId", "!=", uid)         // ★★★ 作者が自分ではないもの ★★★
+  );
+  const relaysReceivedSnap = await getDocs(relaysReceivedQuery);
+  
+  return { relaysGiven: relaysGivenSnap.size, relaysReceived: relaysReceivedSnap.size };
+};
+/**
+ * [マイページ用] 自分が投稿したThanksを取得
+ */
+export const getMyPosts = async (uid) => {
+  // typeが"thanks"の投稿に絞り込む
+  const q = query(postsCollection, where("authorId", "==", uid), where("type", "==", "thanks"), orderBy("timestamp", "desc"));
+  const querySnapshot = await getDocs(q);
+  const posts = [];
+  querySnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+  return posts;
+};
+
+/**
+ * [マイページ用] 自分が「繋げた」（Next Actionした）投稿を取得
+ */
+export const getMyConnectedPosts = async (uid) => {
+  // typeが"action"の投稿に絞り込む
+  const q = query(postsCollection, where("authorId", "==", uid), where("type", "==", "action"), orderBy("timestamp", "desc"));
+  const querySnapshot = await getDocs(q);
+  const posts = [];
+  querySnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+  return posts;
+};
+
+/**
+ * [マイページ用] 自分が「いいね」した投稿を全て取得
+ */
+export const getMyLikedPosts = async (uid) => {
+  const q = query(postsCollection, where("likedBy", "array-contains", uid), orderBy("timestamp", "desc"));
+  const querySnapshot = await getDocs(q);
+  const posts = [];
+  querySnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+  return posts;
 };

@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-// 新しいページ構成に合わせて、読み込む部品を変更・追加します
 import LandingView from '../views/LandingView.vue'
 import MainView from '../views/MainView.vue'
 import RecentPostsView from '../views/RecentPostsView.vue'
@@ -8,48 +7,37 @@ import RankingView from '../views/RankingView.vue'
 import ChainView from '../views/ChainView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import MyPageView from '../views/MyPageView.vue'
 
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-routes: [
+  routes: [
     {
       path: '/',
       name: 'landing',
       component: LandingView
     },
-    // '/timeline'を削除し、以下の'/main'の構造に置き換えます
     {
       path: '/main',
-      name: 'main',
       component: MainView,
-      // /main の中に表示される子ページのルート設定
+      redirect: '/main/recent', 
       children: [
-        {
-          path: '', // '/main'にアクセスされた時のリダイレクト先
-          redirect: '/main/recent'
-        },
-        {
-          path: 'recent', // '/main/recent'のパス
-          name: 'recent',
-          component: RecentPostsView
-        },
-        {
-          path: 'search', // '/main/search'のパス
-          name: 'search',
-          component: SearchView
-        },
-        {
-          path: 'ranking', // '/main/ranking'のパス
-          name: 'ranking',
-          component: RankingView
-        },
-        {
-          path: '/chain/:id', // :id は動的なパラメータ
-          name: 'chain',
-          component: ChainView
-        }
+        { path: 'recent', name: 'recent', component: RecentPostsView },
+        { path: 'search', name: 'search', component: SearchView },
+        { path: 'ranking', name: 'ranking', component: RankingView },
       ]
+    },
+    // ★★★ マイページをMainViewの子供から独立させる ★★★
+    {
+      path: '/mypage',
+      name: 'mypage',
+      component: MyPageView
+    },
+    {
+      path: '/chain/:id',
+      name: 'chain',
+      component: ChainView
     },
     {
       path: '/login',
@@ -61,13 +49,7 @@ routes: [
       name: 'register',
       component: RegisterView
     },
-    {
-      path: '/chain/:id',
-      name: 'chain',
-      component: ChainView
-    }
   ]
 })
 
 export default router
-
