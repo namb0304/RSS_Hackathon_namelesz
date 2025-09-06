@@ -1,9 +1,9 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
-import { getUserProfile, getChain, likePost } from '../firebase' // ★ likePost をインポート
+import { getUserProfile, getChain, likePost } from '../firebase'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
-import { user } from '../store/user' // ★ ユーザー情報をインポート
-import { RouterLink } from 'vue-router'
+import { user } from '../store/user'
+import { RouterLink, useRouter } from 'vue-router'
 
 const props = defineProps({
   post: {
@@ -12,16 +12,16 @@ const props = defineProps({
   }
 })
 
+const router = useRouter()
+
 const authorName = ref('匿名ユーザー')
 const authorAvatar = ref(null)
 const actionPreviews = ref([])
 const isLoadingActions = ref(true)
 
-// 著者のプロフィールをキャッシュするオブジェクト
 const authorProfiles = ref({})
 
 onMounted(async () => {
-  // 投稿者の情報を取得
   if (!props.post.isAnonymous) {
     try {
       const profile = await getUserProfile(props.post.authorId)
@@ -35,12 +35,10 @@ onMounted(async () => {
     }
   }
   
-  // NextActionデータの取得（最大2件まで）
   if (props.post.actionCount > 0) {
     try {
       const actions = await getChain(props.post.id)
       if (actions && actions.length > 0) {
-        // 最新の2件を取得
         actionPreviews.value = actions.slice(0, 2)
       }
     } catch (error) {
@@ -72,30 +70,25 @@ const formatTimestamp = (timestamp) => {
   return new Intl.DateTimeFormat('ja-JP', options).format(date);
 };
 
-// アバターの頭文字を取得
 const avatarInitial = computed(() => {
   return authorName.value.charAt(0).toUpperCase();
 });
 
-// 「続ける」ボタンが押された時の処理
-const handleReplyClick = (event) => {
-  event.preventDefault();
-  // どの投稿への返信かをストアに保存
+const goToDetail = () => {
+  router.push({ name: 'chain', params: { id: props.post.id } })
+}
+
+const handleReplyClick = () => {
   replyToPost.value = props.post;
-  // モーダルを開く
   isPostFormModalOpen.value = true;
 };
 
-// 残りのアクション数
 const remainingActions = computed(() => {
   const total = props.post.actionCount || 0;
   const shown = actionPreviews.value.length;
   return total > shown ? total - shown : 0;
 });
 
-// ★★★ ここからが新しい「いいね」関連の処理です ★★★
-
-// ログイン中のユーザーがいいねした回数を計算する
 const myLikeCount = computed(() => {
   if (!user.value || !props.post.likesMap) {
     return 0;
@@ -103,7 +96,6 @@ const myLikeCount = computed(() => {
   return props.post.likesMap[user.value.uid] || 0;
 });
 
-// いいねボタンが押された時の処理
 const handleLike = async () => {
   if (!user.value) {
     alert("いいねするにはログインが必要です。");
@@ -115,7 +107,6 @@ const handleLike = async () => {
   }
   
   try {
-    // 楽観的UI更新：まずローカルのデータを先に更新して画面に即時反映
     if (props.post.likeCount === undefined) props.post.likeCount = 0;
     props.post.likeCount++;
     
@@ -123,12 +114,10 @@ const handleLike = async () => {
     if (!props.post.likesMap[user.value.uid]) props.post.likesMap[user.value.uid] = 0;
     props.post.likesMap[user.value.uid]++;
     
-    // 裏側でデータベースの更新を呼び出す
     await likePost(props.post.id, user.value.uid);
 
   } catch (error) {
     console.error("いいね処理中にエラー:", error)
-    // エラーが起きたら、画面の表示を元に戻す
     props.post.likeCount--;
     props.post.likesMap[user.value.uid]--;
     alert("いいねに失敗しました。");
@@ -138,68 +127,70 @@ const handleLike = async () => {
 
 <template>
   <div class="card">
-    <div class="card-header">
-      <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
-        <template v-if="!authorAvatar">{{ avatarInitial }}</template>
-      </div>
-      <div class="user-info">
-        <div class="name">{{ authorName }}</div>
-        <div class="id">@{{ authorName.toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
-      </div>
-      <span class="post-type">Thanks</span>
-    </div>
-    
-    <div class="card-body">
-      <p>{{ props.post.text }}</p>
-      <div v-if="props.post.feeling" class="feeling-quote">
-        "{{ props.post.feeling }}"
-      </div>
-      <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
-        <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
-      </div>
-    </div>
-    
-    <div class="branch-preview" v-if="props.post.actionCount > 0">
-      <div class="preview-title">
-        <span class="preview-icon">🔄</span>
-        <span>次のアクション ({{ props.post.actionCount }})</span>
+    <div class="card-clickable-area" @click="goToDetail">
+      <div class="card-header">
+        <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
+          <template v-if="!authorAvatar">{{ avatarInitial }}</template>
+        </div>
+        <div class="user-info">
+          <div class="name">{{ authorName }}</div>
+          <div class="id">@{{ authorName.toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
+        </div>
+        <span class="post-type">Thanks</span>
       </div>
       
-      <!-- ローディング表示 -->
-      <div v-if="isLoadingActions" class="preview-loading">
-        <div class="loading-spinner"></div>
-        <span>読み込み中...</span>
+      <div class="card-body">
+        <p>{{ props.post.text }}</p>
+        <div v-if="props.post.feeling" class="feeling-quote">
+          "{{ props.post.feeling }}"
+        </div>
+        <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
+          <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
+        </div>
       </div>
       
-      <!-- シンプルなアクションプレビュー -->
-      <div v-else-if="actionPreviews.length > 0" class="action-previews">
-        <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
-          {{ action.text }}
+      <div class="branch-preview" v-if="props.post.actionCount > 0">
+        <div class="preview-title">
+          <span class="preview-icon">🔄</span>
+          <span>Next Action ({{ props.post.actionCount }})</span>
         </div>
         
-        <!-- 残りのアクションがある場合 -->
-        <RouterLink 
-          v-if="remainingActions > 0"
-          :to="{ name: 'chain', params: { id: props.post.id } }" 
-          class="more-actions-link"
-        >
-          他{{ remainingActions }}件のアクションを見る
-        </RouterLink>
-      </div>
-      
-      <!-- アクションがない場合 -->
-      <div v-else class="no-actions">
-        <p>アクションの読み込みに失敗しました</p>
+        <div v-if="isLoadingActions" class="preview-loading">
+          <div class="loading-spinner"></div>
+          <span>Loading...</span>
+        </div>
+        
+        <div v-else-if="actionPreviews.length > 0" class="action-previews">
+          <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
+            {{ action.text }}
+          </div>
+          
+          <RouterLink 
+            v-if="remainingActions > 0"
+            :to="{ name: 'chain', params: { id: props.post.id } }" 
+            class="more-actions-link"
+            @click.stop
+          >
+            他{{ remainingActions }}件のアクションを見る
+          </RouterLink>
+        </div>
+        
+        <div v-else class="no-actions">
+          <p>アクションの読み込みに失敗しました</p>
+        </div>
       </div>
     </div>
     
     <div class="card-footer">
       <div class="metrics">
-        <!-- ★ いいねボタンにクリックイベントを追加 -->
-        <button @click="handleLike" class="like-button" :title="`10回までいいねできます (現在: ${myLikeCount}回)`">
-          ❤️ {{ props.post.likeCount || 0 }}
+        <!-- ★★★ いいねボタンの表示を更新 ★★★ -->
+        <button @click="handleLike" class="like-button" :title="`10回までいいねできます`">
+          <span>❤️ {{ props.post.likeCount || 0 }}</span>
+          <!-- ★ 自分がいいねした場合にだけカウンターを表示 -->
+          <span v-if="myLikeCount > 0" class="my-like-count-indicator">
+            ({{ myLikeCount }}/10)
+          </span>
         </button>
-        <span class="action-count">🔄 {{ props.post.actionCount || 0 }}</span>
       </div>
       <button @click="handleReplyClick" class="reply-button">続ける</button>
     </div>
@@ -207,14 +198,14 @@ const handleLike = async () => {
 </template>
 
 <style scoped>
-/* カードのベーススタイル */
 .card {
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  padding: 16px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .card:hover {
@@ -222,7 +213,12 @@ const handleLike = async () => {
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
-/* カードヘッダー */
+.card-clickable-area {
+  padding: 16px;
+  cursor: pointer;
+  flex-grow: 1;
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -268,7 +264,6 @@ const handleLike = async () => {
   font-weight: bold;
 }
 
-/* カード本文 */
 .card-body {
   margin-bottom: 16px;
 }
@@ -303,12 +298,11 @@ const handleLike = async () => {
   font-size: 0.8rem;
 }
 
-/* ブランチプレビュー */
 .branch-preview {
   background-color: #f9f9f9;
   border-radius: 8px;
   padding: 12px;
-  margin: 12px 0;
+  margin-top: 12px;
 }
 
 .preview-title {
@@ -323,7 +317,6 @@ const handleLike = async () => {
   margin-right: 6px;
 }
 
-/* ローディング表示 */
 .preview-loading {
   display: flex;
   align-items: center;
@@ -348,7 +341,6 @@ const handleLike = async () => {
   100% { transform: rotate(360deg); }
 }
 
-/* シンプルなアクションプレビュー */
 .action-previews {
   margin-bottom: 8px;
 }
@@ -386,19 +378,21 @@ const handleLike = async () => {
   font-size: 0.9rem;
 }
 
-/* カードフッター */
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid #eee;
-  margin-top: 8px;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-top: 1px solid #f0f0f0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 .metrics {
   display: flex;
   gap: 16px;
+  align-items: center;
 }
 
 .like-button, .action-count {
@@ -406,21 +400,34 @@ const handleLike = async () => {
   font-size: 0.9rem;
   display: flex;
   align-items: center;
-  cursor: pointer;
 }
 
-/* ★ like-button を button タグ用に調整 */
 .like-button {
   background: none;
   border: none;
   padding: 0;
   margin: 0;
   font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
 .like-button:hover {
   color: #e74c3c;
 }
+
+/* ★★★ いいねカウンター用の新しいスタイル ★★★ */
+.my-like-count-indicator {
+  font-size: 0.75rem;
+  color: #9ca3af; /* 少し薄めのグレー */
+  margin-left: 6px; /* いいね総数との間に少し余白 */
+  font-weight: normal;
+  background-color: #f3f4f6; /* 背景色を付けて少し際立たせる */
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
 
 .reply-button {
   background-color: #FF8C42;
@@ -438,3 +445,4 @@ const handleLike = async () => {
   background-color: #EE965F;
 }
 </style>
+

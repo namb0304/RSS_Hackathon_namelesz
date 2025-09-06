@@ -75,49 +75,28 @@ const handleNewPostClick = () => {
   padding-bottom: 80px;
 }
 
-/* ヘッダースタイル */
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  background-color: #fff;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-.header-left {
-  font-weight: bold;
-  font-size: 1.2em;
-  color: #FF8C42;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.icon {
-  margin-left: 15px;
-  font-size: 1.1em;
-  cursor: pointer;
-}
-
 /* タイムラインコンテナ */
 .timeline-container {
   padding: 10px;
-  max-width: 600px;
+  /* ★ 変更：PC表示時に2列表示に対応するため、横幅を広げます */
+  max-width: 1200px; 
   margin: 0 auto;
 }
 
 /* 投稿リスト */
 .posts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  /* ★ 変更：FlexboxからGridレイアウトに変更します */
+  display: grid;
+  gap: 15px; /* カード間の隙間 */
+}
+
+/* ★★★ ここからが新しいスタイルです ★★★ */
+/* 画面幅が768px以上のとき（タブレットやPC）に適用されます */
+@media (min-width: 768px) {
+  .posts-list {
+    /* 2つのカラムを作成します。frは利用可能なスペースの割合を示します */
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 /* メッセージスタイル */
@@ -131,30 +110,8 @@ const handleNewPostClick = () => {
   padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  /* ★ 追加：2列表示でも中央に配置されるように調整 */
+  grid-column: 1 / -1;
 }
 
-/* FABボタン */
-.fab-button {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background-color: #FF8C42;
-  color: white;
-  font-size: 1.8em;
-  border: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  z-index: 1001;
-}
-
-.fab-button:hover {
-  background-color: #EE965F;
-  transform: scale(1.05);
-}
 </style>
