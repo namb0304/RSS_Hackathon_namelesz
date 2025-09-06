@@ -37,7 +37,7 @@ onMounted(() => {
     @click="isPostFormModalOpen = true" 
     class="floating-post-button"
   >
-    投稿
+    +
   </button>
 </template>
 
@@ -69,7 +69,7 @@ main {
   background-color: #ee965fff;
   color: white;
   border: none;
-  font-size: 1rem;
+  font-size: 2.7rem;
   font-weight: bold;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   cursor: pointer;

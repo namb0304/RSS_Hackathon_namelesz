@@ -64,7 +64,6 @@ const handleNewPostClick = () => {
       </div>
     </div>
 
-    <button class="fab-button" @click="handleNewPostClick">+</button>
   </div>
 </template>
 
