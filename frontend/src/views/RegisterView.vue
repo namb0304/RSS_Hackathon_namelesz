@@ -38,7 +38,7 @@ const handleRegister = async () => {
     }
 
     // 3. 登録成功後、タイムラインページへ移動
-    router.push('/timeline')
+    router.push('/main')
 
   } catch (error) {
     console.error('登録エラー:', error.code)
