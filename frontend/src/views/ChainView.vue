@@ -31,13 +31,20 @@ onMounted(async () => {
 
 // 全著者のプロフィール情報を取得
 const loadAuthorProfiles = async (posts) => {
-  const authorIds = [...new Set(posts.map(post => post.authorId).filter(id => id && !post.isAnonymous))]
-  
+  // ★ 修正点: 先に匿名でない投稿をフィルタリングしてから、著者IDのリストを作成します
+  const authorIds = [...new Set(
+    posts
+      .filter(post => post.authorId && !post.isAnonymous)
+      .map(post => post.authorId)
+  )];
+
   for (const authorId of authorIds) {
     try {
-      const profile = await getUserProfile(authorId)
-      if (profile) {
-        authorProfiles.value[authorId] = profile
+      if (!authorProfiles.value[authorId]) { // まだ取得していない場合のみ取得
+        const profile = await getUserProfile(authorId)
+        if (profile) {
+          authorProfiles.value[authorId] = profile
+        }
       }
     } catch (error) {
       console.error(`著者情報の取得に失敗: ${authorId}`, error)
@@ -62,6 +69,7 @@ const actionPosts = computed(() => {
 
 // 投稿の著者名を取得
 const getAuthorName = (post) => {
+  if (!post || !post.authorId) return '読み込み中...';
   if (post.isAnonymous) return '匿名ユーザー'
   
   const profile = authorProfiles.value[post.authorId]
@@ -70,6 +78,7 @@ const getAuthorName = (post) => {
 
 // アバター表示用の頭文字を取得
 const getAvatarInitial = (post) => {
+  if (!post) return '';
   const name = getAuthorName(post)
   return name.charAt(0).toUpperCase()
 }
@@ -99,31 +108,27 @@ const handleNextActionClick = () => {
 // 階層（depth）ごとの色を取得
 const getColorByDepth = (depth) => {
   const colors = ['#FF8C42', '#2196F3', '#4CAF50', '#9C27B0', '#FF5722']
-  return colors[depth % colors.length]
+  return colors[(depth || 0) % colors.length]
 }
 </script>
 
 <template>
   <div class="detail-page">
     <header class="app-header detail-header">
-      <a href="#" class="back-link" @click.prevent="handleBack">← タイムラインに戻る</a>
-      <div class="header-right">
-        <span class="icon">共有</span>
-        <span class="icon">⋮</span>
-      </div>
+    <RouterLink to="/main/recent" class="back-link">← タイムラインに戻る</RouterLink>
     </header>
 
     <div v-if="isLoading" class="loading-container">
       <p>読み込み中...</p>
     </div>
-    
+     
     <div v-else-if="chainPosts.length > 0" class="detail-container">
       <!-- 左側：スレッド表示 -->
       <div class="detail-left">
         <button class="next-action-btn" @click="handleNextActionClick">
           <span class="btn-icon">🔄</span> この体験に触発されて次のアクションを投稿する
         </button>
-        
+         
         <div class="thread-container">
           <!-- きっかけ投稿 (ルート) -->
           <div 
@@ -156,7 +161,7 @@ const getColorByDepth = (depth) => {
               </div>
             </div>
           </div>
-          
+           
           <!-- NextAction投稿 -->
           <div 
             v-for="(post, index) in actionPosts" 
@@ -191,7 +196,7 @@ const getColorByDepth = (depth) => {
           </div>
         </div>
       </div>
-      
+       
       <!-- 右側：家系図・ツリー表示 -->
       <div class="detail-right">
         <div class="family-tree">
@@ -208,7 +213,7 @@ const getColorByDepth = (depth) => {
               {{ getAvatarInitial(rootPost) }}
               <span class="node-tooltip">{{ rootPost.text.substring(0, 20) }}...</span>
             </div>
-            
+             
             <!-- NextActionノード (動的配置) -->
             <template v-for="(post, index) in actionPosts" :key="post.id">
               <div 
@@ -224,7 +229,7 @@ const getColorByDepth = (depth) => {
                 {{ getAvatarInitial(post) }}
                 <span class="node-tooltip">{{ post.text.substring(0, 20) }}...</span>
               </div>
-              
+               
               <!-- 接続線 -->
               <div 
                 class="tree-connector" 
@@ -240,7 +245,7 @@ const getColorByDepth = (depth) => {
             <!-- 階層表示 -->
             <div class="tree-levels">
               <div class="level-marker" style="top: 50px; left: 10px;">Lv.0</div>
-              <div v-for="level in Math.max(...chainPosts.map(p => p.depth), 1)" :key="level" 
+              <div v-for="level in Math.max(...chainPosts.map(p => p.depth || 0), 0)" :key="level" 
                    class="level-marker" 
                    :style="{top: `${120 + (level-1) * 80}px`, left: '10px'}">
                 Lv.{{ level }}
@@ -252,7 +257,7 @@ const getColorByDepth = (depth) => {
         <div class="chain-stats">
           <div class="stat-item">
             <div class="stat-label">連鎖の深さ</div>
-            <div class="stat-value">{{ Math.max(...chainPosts.map(p => p.depth), 0) }}</div>
+            <div class="stat-value">{{ Math.max(...chainPosts.map(p => p.depth || 0), 0) }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">アクション数</div>
@@ -265,7 +270,7 @@ const getColorByDepth = (depth) => {
         </div>
       </div>
     </div>
-    
+     
     <div v-else class="empty-container">
       <p>投稿が見つかりませんでした。</p>
       <button class="back-btn" @click="handleBack">タイムラインに戻る</button>
@@ -334,11 +339,11 @@ const getColorByDepth = (depth) => {
     margin: 0 auto;
     gap: 20px;
   }
-  
+   
   .detail-left {
     flex: 6;
   }
-  
+   
   .detail-right {
     flex: 4;
     position: sticky;

@@ -46,15 +46,6 @@ const handleNewPostClick = () => {
 
 <template>
   <div class="page-container">
-    <header class="app-header">
-      <div class="header-left">ThanksChain</div>
-      <div class="header-right">
-        <span class="icon">🔍</span>
-        <span class="icon">🔔</span>
-        <span class="icon">👤</span>
-      </div>
-    </header>
-
     <div class="timeline-container">
       <div v-if="isLoading" class="loading-message">
         <p>読み込み中...</p>
