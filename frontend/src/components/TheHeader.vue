@@ -18,99 +18,122 @@ const handleLogout = async () => {
 <template>
   <header class="header">
     <div class="logo">
-      <!-- ★★★ ログイン状態に関わらず、ロゴクリックで適切なページへ飛ぶように変更 ★★★ -->
       <RouterLink :to="user ? '/timeline' : '/'">Thanks</RouterLink>
     </div>
     
     <nav v-if="!user" class="auth-nav">
-      <RouterLink to="/register" class="nav-button signup">新規登録</RouterLink>
-      <RouterLink to="/login" class="nav-button login">ログイン</RouterLink>
+      <RouterLink to="/register" class="btn signup">無料で始める</RouterLink>
+      <RouterLink to="/login" class="btn login">ログイン</RouterLink>
     </nav>
 
     <nav v-else class="auth-nav">
-      <!-- ★★★ ここを変更 ★★★ -->
-      <!-- 人マークとユーザー名を両方表示 -->
-      <RouterLink v-if="user" to="/mypage" class="nav-button mypage-link">
+      <RouterLink v-if="user" to="/mypage" class="btn mypage">
         <span class="mypage-icon">👤</span>
         <span v-if="user.displayName">{{ user.displayName }}</span>
       </RouterLink>
-      <button @click="handleLogout" class="nav-button logout">ログアウト</button>
+      <button @click="handleLogout" class="btn logout">ログアウト</button>
     </nav>
 
   </header>
 </template>
 
 <style scoped>
+/* ★★★ ランディングページとフォントを統一 ★★★ */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@800&family=Poppins:wght@400;700&display=swap');
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  padding: 0.8rem 2rem;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #fdeee0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  font-family: 'Poppins', sans-serif;
 }
+
 .logo a {
-  font-weight: bold;
-  font-size: 1.5rem;
+  /* ★★★ ランディングページとフォントを統一 ★★★ */
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 1.8rem;
   text-decoration: none;
-  color: #333;
+  /* ランディングページのタイトルに合わせたグラデーション */
+  background: linear-gradient(45deg, #FF8C42, #EE965F);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
 }
+
 .auth-nav {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
-.nav-button {
-  padding: 0.5rem 1rem;
-  border-radius: 5px;
+
+/* ★★★ 全ボタン共通のスタイルを定義 ★★★ */
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.5rem;
+  border-radius: 50px; /* 角を丸くする */
   text-decoration: none;
   font-weight: bold;
-  transition: all 0.2s;
-  text-align: center;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  border: 2px solid transparent;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /* 影を追加 */
   cursor: pointer;
-  background: none;
-  font-size: 1rem;
-  font-family: inherit;
+  font-family: 'Poppins', sans-serif;
 }
+
+.btn:hover {
+  transform: translateY(-2px); /* ホバー時に少し浮き上がる */
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ★★★ ランディングページのデザインを適用 ★★★ */
 .signup {
-  background-color: #28a745;
+  background-color: #ee965fff;
   color: white;
-  border: 1px solid #28a745;
 }
 .signup:hover {
-  background-color: #218838;
+  filter: brightness(1.1);
 }
+
 .login {
-  background-color: transparent;
-  color: #007bff;
-  border: 1px solid #007bff;
+  background-color: #FFFFFF;
+  color: #dc8144ff;
+  border-color: #dc8144ff;
 }
 .login:hover {
-  background-color: #007bff;
-  color: white;
+  background-color: #FFF7F0;
+  border-color: #f79254ff;
 }
-/* ログイン後のボタンのスタイル */
+
+/* ★★★ ログイン後のボタンもデザインを統一 ★★★ */
 .logout {
-  background-color: #dc3545;
-  color: white;
-  border: 1px solid #dc3545;
+  background-color: #f3f4f6; /* 落ち着いたグレー */
+  color: #6b7280;
+  border-color: #e5e7eb;
 }
 .logout:hover {
-    background-color: #c82333;
+  background-color: #e5e7eb;
+  color: #4b5563;
 }
-/* ★★★ マイページリンクのスタイルを変更 ★★★ */
-.mypage-link {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem; /* アイコンと名前の間隔 */
-    border: 1px solid #6c757d;
-    color: #333;
+
+.mypage {
+  background-color: transparent;
+  color: #374151;
+  padding-left: 0.8rem; /* アイコンがあるので少し調整 */
 }
-.mypage-link:hover {
-    background-color: #e2e6ea;
+.mypage:hover {
+  background-color: #f9fafb;
 }
 .mypage-icon {
-    font-size: 1.2rem;
+  font-size: 1.2rem;
 }
 </style>
 
