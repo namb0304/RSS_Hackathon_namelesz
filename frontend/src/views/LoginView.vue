@@ -20,7 +20,7 @@ const handleLogin = async () => {
 
     
     // ホームページにリダイレクト
-    router.push('/')
+    router.push('/TimeLine')
 
   } catch (error) {
     console.error('ログインエラー:', error.code)
