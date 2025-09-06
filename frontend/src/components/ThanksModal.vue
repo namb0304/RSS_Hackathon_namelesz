@@ -1,46 +1,45 @@
 <script setup>
 import { ref } from 'vue'
-// バックエンド担当が作ったaddThanksPost関数を読み込む
 import { addThanksPost } from '../firebase.js'
+// ★★★ ログイン中のユーザー情報を取得するためにインポート ★★★
+import { user } from '../store/user'
 
-// 親コンポーネントに「閉じて」と伝えるための準備
 const emit = defineEmits(['close'])
 
-// フォームの入力内容を保存するための変数
 const postText = ref('')
 const isAnonymous = ref(false)
 const isLoading = ref(false)
 
-// 「投稿する」ボタンが押されたときの処理
 const submitPost = async () => {
   if (!postText.value.trim()) {
     alert('感謝の気持ちを入力してください。')
     return
   }
   
-  isLoading.value = true // ローディング開始
+  isLoading.value = true
 
   try {
-    // firebase.jsの関数を呼び出して、データをFirebaseに送信
+    // ★★★ ログインユーザーの情報を渡すように変更 ★★★
     await addThanksPost({
       text: postText.value,
-      authorId: 'user_placeholder_id', // TODO: 将来的にログイン機能と連携
+      authorId: user.value.uid, // ログインしているユーザーのID
+      authorName: user.value.displayName, // ログインしているユーザーの名前
       isAnonymous: isAnonymous.value,
     })
     
-    // 成功したら、親に「閉じて」と伝える
     emit('close')
 
   } catch (error) {
     console.error("投稿エラー:", error)
     alert("投稿に失敗しました。")
   } finally {
-    isLoading.value = false // ローディング終了
+    isLoading.value = false
   }
 }
 </script>
 
 <template>
+  <!-- (template部分は変更なし) -->
   <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
       <h2>感謝を投稿する</h2>
@@ -68,6 +67,7 @@ const submitPost = async () => {
 </template>
 
 <style scoped>
+/* (style部分は変更なし) */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0;

@@ -58,6 +58,7 @@ export const addThanksPost = async ({ text, authorId, authorName, isAnonymous })
   });
 };
 
+
 /**
  * Next Action を投稿し、元のThanksのactionCountを更新する関数
  */
