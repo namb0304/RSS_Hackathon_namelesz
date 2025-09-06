@@ -71,7 +71,7 @@ main {
   border: none;
   font-size: 2.7rem;
   font-weight: bold;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 15px rgba(93, 90, 90, 1);
   cursor: pointer;
   display: flex;
   justify-content: center;

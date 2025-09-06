@@ -17,8 +17,10 @@ onMounted(async () => {
   try {
     const posts = await getPostChain(postId)
     if (posts && posts.length > 0) {
+      // getPostChainから返されるデータに `replyTo` が含まれていることを想定しています。
+      // もし含まれていない場合、この家系図は正しく機能しません。
       chainPosts.value = posts
-      
+
       // 全投稿の著者情報を読み込む
       await loadAuthorProfiles(posts)
     }
@@ -31,7 +33,6 @@ onMounted(async () => {
 
 // 全著者のプロフィール情報を取得
 const loadAuthorProfiles = async (posts) => {
-  // ★ 修正点: 先に匿名でない投稿をフィルタリングしてから、著者IDのリストを作成します
   const authorIds = [...new Set(
     posts
       .filter(post => post.authorId && !post.isAnonymous)
@@ -40,7 +41,7 @@ const loadAuthorProfiles = async (posts) => {
 
   for (const authorId of authorIds) {
     try {
-      if (!authorProfiles.value[authorId]) { // まだ取得していない場合のみ取得
+      if (!authorProfiles.value[authorId]) {
         const profile = await getUserProfile(authorId)
         if (profile) {
           authorProfiles.value[authorId] = profile
@@ -51,6 +52,102 @@ const loadAuthorProfiles = async (posts) => {
     }
   }
 }
+
+// 階層ごとの色を取得する関数 (変更なし)
+const getColorByDepth = (depth) => {
+  const colors = ['#FF8C42', '#2196F3', '#4CAF50', '#9C27B0', '#FF5722', '#795548', '#607D8B']
+  return colors[(depth || 0) % colors.length]
+}
+
+/**
+ * 家系図のレイアウト（ノードの位置と親子を結ぶ線）を計算します。
+ * @returns {{nodes: Array, connectors: Array, containerHeight: Number}}
+ */
+const treeLayout = computed(() => {
+  const nodes = [];
+  const connectors = [];
+  if (chainPosts.value.length === 0) return { nodes, connectors, containerHeight: 400 };
+
+  const postsByDepth = chainPosts.value.reduce((acc, post) => {
+    const depth = post.depth || 0;
+    if (!acc[depth]) {
+      acc[depth] = [];
+    }
+    acc[depth].push(post);
+    return acc;
+  }, {});
+
+  const nodePositions = new Map();
+
+  chainPosts.value.forEach((post, originalIndex) => {
+    const depth = post.depth || 0;
+    const levelNodes = postsByDepth[depth];
+    const indexInLevel = levelNodes.findIndex(p => p.id === post.id);
+
+    const top = 50 + depth * 100;
+    const left = (100 / (levelNodes.length + 1)) * (indexInLevel + 1);
+
+    const nodeData = {
+      ...post,
+      originalIndex,
+      style: {
+        top: `${top}px`,
+        left: `${left}%`,
+        backgroundColor: getColorByDepth(depth)
+      },
+      isRoot: depth === 0
+    };
+    nodes.push(nodeData);
+    nodePositions.set(post.id, { top, left });
+  });
+
+  nodes.forEach(node => {
+    if (node.replyTo) {
+      const parentPos = nodePositions.get(node.replyTo);
+      const childPos = nodePositions.get(node.id);
+      if (parentPos && childPos) {
+        connectors.push({
+          id: `${node.replyTo}-${node.id}`,
+          x1: parentPos.left,
+          y1: parentPos.top,
+          x2: childPos.left,
+          y2: childPos.top,
+        });
+      }
+    }
+  });
+  
+  const maxDepth = Math.max(...chainPosts.value.map(p => p.depth || 0), 0);
+  const containerHeight = 120 + maxDepth * 100;
+
+  return { nodes, connectors, containerHeight };
+});
+
+// ★★★ ここからが今回の修正点です ★★★
+
+/**
+ * ハイライトされている投稿の親子関係を計算します。
+ * @returns {{parent: String|null, self: String|null, children: String[]}}
+ */
+const highlightedFamilyIds = computed(() => {
+  const family = { parent: null, self: null, children: [] };
+  if (highlightedPostIndex.value < 0 || highlightedPostIndex.value >= chainPosts.value.length) {
+    return family;
+  }
+
+  const selectedPost = chainPosts.value[highlightedPostIndex.value];
+  if (!selectedPost) return family;
+
+  family.self = selectedPost.id;
+  family.parent = selectedPost.replyTo || null;
+  family.children = chainPosts.value
+    .filter(p => p.replyTo === selectedPost.id)
+    .map(p => p.id);
+
+  return family;
+});
+
+// ★★★ 修正点はここまで ★★★
 
 // 投稿ノードをクリックしたときのハイライト処理
 const highlightThread = (index) => {
@@ -71,7 +168,7 @@ const actionPosts = computed(() => {
 const getAuthorName = (post) => {
   if (!post || !post.authorId) return '読み込み中...';
   if (post.isAnonymous) return '匿名ユーザー'
-  
+   
   const profile = authorProfiles.value[post.authorId]
   return profile?.displayName || '名前未設定のユーザー'
 }
@@ -105,11 +202,6 @@ const handleNextActionClick = () => {
   }
 }
 
-// 階層（depth）ごとの色を取得
-const getColorByDepth = (depth) => {
-  const colors = ['#FF8C42', '#2196F3', '#4CAF50', '#9C27B0', '#FF5722']
-  return colors[(depth || 0) % colors.length]
-}
 </script>
 
 <template>
@@ -121,16 +213,14 @@ const getColorByDepth = (depth) => {
     <div v-if="isLoading" class="loading-container">
       <p>読み込み中...</p>
     </div>
-     
+      
     <div v-else-if="chainPosts.length > 0" class="detail-container">
-      <!-- 左側：スレッド表示 -->
       <div class="detail-left">
         <button class="next-action-btn" @click="handleNextActionClick">
         この体験に触発されてあなたがしたアクションを投稿する
         </button>
-         
+          
         <div class="thread-container">
-          <!-- きっかけ投稿 (ルート) -->
           <div 
             v-if="rootPost" 
             class="thread-item thanks-post" 
@@ -161,14 +251,13 @@ const getColorByDepth = (depth) => {
               </div>
             </div>
           </div>
-           
-          <!-- NextAction投稿 -->
+            
           <div 
             v-for="(post, index) in actionPosts" 
             :key="post.id"
             class="thread-item next-action"
             :class="{ highlight: highlightedPostIndex === index + 1 }"
-            @click="highlightThread(index + 1)"
+            :style="{ borderLeftColor: getColorByDepth(post.depth) }" @click="highlightThread(index + 1)"
           >
             <div class="thread-content">
               <div class="avatar" :style="{backgroundColor: getColorByDepth(post.depth)}">
@@ -189,66 +278,80 @@ const getColorByDepth = (depth) => {
                   </div>
                 </div>
               </div>
-              <div class="post-type-badge next-badge">
-                <span class="badge-icon">🔄</span>NextAction
+              <div class="post-type-badge next-badge" :style="{ backgroundColor: getColorByDepth(post.depth) }"> <span class="badge-icon">🔄</span>NextAction
               </div>
             </div>
           </div>
         </div>
       </div>
-       
-      <!-- 右側：家系図・ツリー表示 -->
+        
       <div class="detail-right">
         <div class="family-tree">
           <div class="tree-title">感謝の連鎖マップ <span class="tree-subtitle">(クリックで詳細表示)</span></div>
-          <div class="tree-container">
-            <!-- ルートノード (感謝投稿) -->
-            <div 
-              v-if="rootPost"
-              class="tree-node root" 
-              :class="{ active: highlightedPostIndex === 0 }"
-              :style="{ top: '50px', left: '50%', backgroundColor: getColorByDepth(0) }"
-              @click="highlightThread(0)"
+          <div
+            class="tree-container"
+            :style="{ height: `${treeLayout.containerHeight}px` }"
+            :class="{ 'has-selection': !!highlightedFamilyIds.self }"
+          >
+            <!-- 親子を結ぶ線をSVGで描画 -->
+            <svg class="tree-svg-connectors">
+              <defs>
+                <marker
+                  id="arrowhead"
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#ccc" />
+                </marker>
+              </defs>
+              <line
+                v-for="line in treeLayout.connectors"
+                :key="line.id"
+                :x1="`${line.x1}%`"
+                :y1="line.y1 + 25"
+                :x2="`${line.x2}%`"
+                :y2="line.y2 + 25"
+                class="tree-connector-line"
+                :class="{
+                  'is-family-connector':
+                    (line.id === `${highlightedFamilyIds.parent}-${highlightedFamilyIds.self}`) ||
+                    (highlightedFamilyIds.children.some(childId => line.id === `${highlightedFamilyIds.self}-${childId}`))
+                }"
+                marker-end="url(#arrowhead)"
+              />
+            </svg>
+            
+            <!-- 各投稿をノードとして表示 -->
+            <div
+              v-for="node in treeLayout.nodes"
+              :key="node.id"
+              class="tree-node"
+              :class="{ 
+                active: highlightedPostIndex === node.originalIndex,
+                root: node.isRoot,
+                'is-family': node.id === highlightedFamilyIds.parent ||
+                             node.id === highlightedFamilyIds.self ||
+                             highlightedFamilyIds.children.includes(node.id)
+              }"
+              :style="node.style"
+              @click="highlightThread(node.originalIndex)"
             >
-              {{ getAvatarInitial(rootPost) }}
-              <span class="node-tooltip">{{ rootPost.text.substring(0, 20) }}...</span>
+              {{ getAvatarInitial(node) }}
+              <span class="node-tooltip">{{ node.text.substring(0, 20) }}...</span>
             </div>
-             
-            <!-- NextActionノード (動的配置) -->
-            <template v-for="(post, index) in actionPosts" :key="post.id">
-              <div 
-                class="tree-node" 
-                :class="{ active: highlightedPostIndex === index + 1 }"
-                :style="{ 
-                  top: `${120 + Math.floor(index / 3) * 80}px`, 
-                  left: `${(index % 3 * 30) + 20}%`,
-                  backgroundColor: getColorByDepth(post.depth)
-                }"
-                @click="highlightThread(index + 1)"
-              >
-                {{ getAvatarInitial(post) }}
-                <span class="node-tooltip">{{ post.text.substring(0, 20) }}...</span>
-              </div>
-               
-              <!-- 接続線 -->
-              <div 
-                class="tree-connector" 
-                :style="{
-                  top: `${85 + Math.floor((index - 1) / 3) * 80}px`,
-                  left: '50%', 
-                  width: `${Math.abs((index % 3 * 30) + 20 - 50) * 2}px`,
-                  transform: `rotate(${(index % 3 * 30) + 20 < 50 ? 45 : -45}deg) scaleX(${Math.abs((index % 3 * 30) + 20 - 50) / 50})`
-                }"
-              ></div>
-            </template>
-
-            <!-- 階層表示 -->
+            
+            <!-- 階層レベルの表示 -->
             <div class="tree-levels">
-              <div class="level-marker" style="top: 50px; left: 10px;">Lv.0</div>
-              <div v-for="level in Math.max(...chainPosts.map(p => p.depth || 0), 0)" :key="level" 
-                   class="level-marker" 
-                   :style="{top: `${120 + (level-1) * 80}px`, left: '10px'}">
-                Lv.{{ level }}
+              <div
+                v-for="level in (Math.max(...chainPosts.map(p => p.depth || 0), 0) + 1)"
+                :key="level"
+                class="level-marker"
+                :style="{top: `${50 + (level - 1) * 100}px`}">
+                Lv.{{ level - 1 }}
               </div>
             </div>
           </div>
@@ -270,7 +373,7 @@ const getColorByDepth = (depth) => {
         </div>
       </div>
     </div>
-     
+      
     <div v-else class="empty-container">
       <p>投稿が見つかりませんでした。</p>
       <button class="back-btn" @click="handleBack">タイムラインに戻る</button>
@@ -296,9 +399,7 @@ const getColorByDepth = (depth) => {
   border-bottom: 1px solid #ddd;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   position: sticky;
-  /* ★ 変更：メインヘッダー(約70px)の下に貼り付くように調整 */
   top: 70px;
-  /* ★ 変更：メインヘッダーより奥に表示されるように調整 */
   z-index: 999;
 }
 
@@ -315,18 +416,6 @@ const getColorByDepth = (depth) => {
   color: #FF8C42;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.icon {
-  cursor: pointer;
-  color: #666;
-  font-size: 0.9rem;
-}
-
 /* 詳細コンテナ */
 .detail-container {
   padding: 15px;
@@ -341,15 +430,14 @@ const getColorByDepth = (depth) => {
     margin: 0 auto;
     gap: 20px;
   }
-   
+    
   .detail-left {
     flex: 6;
   }
-   
+    
   .detail-right {
     flex: 4;
     position: sticky;
-    /* ★ 変更：メインヘッダーとこのページのヘッダーの下にくるように調整 */
     top: 125px; 
     align-self: flex-start;
   }
@@ -377,11 +465,6 @@ const getColorByDepth = (depth) => {
   background-color: #0b7dda;
 }
 
-.btn-icon {
-  margin-right: 6px;
-  font-size: 1.1em;
-}
-
 /* スレッドコンテナ */
 .thread-container {
   background: #fff;
@@ -405,13 +488,12 @@ const getColorByDepth = (depth) => {
   background-color: #f9f9f9;
 }
 
-/* 投稿種類による分類 */
 .thread-item.thanks-post {
   border-left: 4px solid #FF8C42;
 }
 
 .thread-item.next-action {
-  border-left: 4px solid #2196F3;
+  border-left: 4px solid;
   margin-left: 20px;
 }
 
@@ -506,22 +588,20 @@ const getColorByDepth = (depth) => {
   background-color: #FF8C42;
 }
 
-.next-badge {
-  background-color: #2196F3;
-}
-
 .badge-icon {
   margin-right: 4px;
   font-size: 1em;
 }
 
-/* 家系図スタイル */
+/* === ▼▼▼ ここから家系図の新しいスタイル ▼▼▼ === */
+
 .family-tree {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   padding: 20px 10px;
   margin-bottom: 20px;
+  overflow-x: auto;
 }
 
 .tree-title {
@@ -539,7 +619,25 @@ const getColorByDepth = (depth) => {
 
 .tree-container {
   position: relative;
-  height: 400px;
+  min-height: 400px;
+  width: 100%;
+  transition: all 0.3s ease-in-out;
+}
+
+.tree-svg-connectors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  overflow: visible;
+}
+
+.tree-connector-line {
+  stroke: #ccc;
+  stroke-width: 2px;
+  transition: all 0.3s ease-in-out;
 }
 
 .tree-node {
@@ -556,12 +654,40 @@ const getColorByDepth = (depth) => {
   z-index: 2;
   cursor: pointer;
   transition: all 0.2s ease;
-  transform: translateX(-50%); /* 中心を基準に配置 */
+  transform: translateX(-50%);
 }
 
+/* ★★★ ここから今回の修正スタイルです ★★★ */
+
+/* 親子ラインが選択されているとき、関係ない要素を少し透明にする */
+.tree-container.has-selection .tree-node:not(.is-family) {
+  opacity: 0.3;
+  transform: translateX(-50%) scale(0.95);
+}
+.tree-container.has-selection .tree-connector-line:not(.is-family-connector) {
+  opacity: 0.15;
+}
+
+/* 選択された親子ラインのコネクターをハイライト */
+.tree-connector-line.is-family-connector {
+  stroke: #FF8C42;
+  stroke-width: 3px;
+}
+/* 矢印の色もコネクターに合わせる */
+.tree-connector-line.is-family-connector {
+    marker-end: url(#arrowhead-highlight);
+}
+.tree-svg-connectors defs #arrowhead-highlight path {
+    fill: #FF8C42;
+}
+
+
+/* ★★★ 修正スタイルはここまで ★★★ */
+
+
 .tree-node:hover {
-  transform: translateX(-50%) scale(1.05);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transform: translateX(-50%) scale(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
 .tree-node.active {
@@ -596,28 +722,21 @@ const getColorByDepth = (depth) => {
   visibility: visible;
 }
 
-.tree-connector {
-  position: absolute;
-  height: 2px;
-  background-color: #ccc;
-  z-index: 1;
-  transform-origin: 0 0;
-}
-
 .tree-levels {
   position: absolute;
   top: 0;
-  left: 0;
+  left: -5px;
   height: 100%;
   width: 100%;
   z-index: 0;
+  pointer-events: none;
 }
 
 .level-marker {
   position: absolute;
   font-size: 0.8rem;
   color: #888;
-  background: rgba(255,255,255,0.8);
+  background: rgba(240, 242, 245, 0.8);
   padding: 2px 5px;
   border-radius: 4px;
 }
