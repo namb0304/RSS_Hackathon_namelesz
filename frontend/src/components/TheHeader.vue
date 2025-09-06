@@ -27,11 +27,11 @@ const handleLogout = async () => {
     </nav>
 
     <nav v-else class="auth-nav">
-      <RouterLink v-if="user" to="/mypage" class="btn mypage">
-        <span class="mypage-icon">👤</span>
+    <RouterLink v-if="user" to="/mypage" class="btn login">
         <span v-if="user.displayName">{{ user.displayName }}</span>
-      </RouterLink>
-      <button @click="handleLogout" class="btn logout">ログアウト</button>
+        <span v-else>マイページ</span>
+    </RouterLink>
+    <button @click="handleLogout" class="btn logout">ログアウト</button>
     </nav>
 
   </header>
@@ -53,12 +53,10 @@ const handleLogout = async () => {
 }
 
 .logo a {
-  /* ★★★ ランディングページとフォントを統一 ★★★ */
   font-family: 'Nunito', sans-serif;
   font-weight: 800;
   font-size: 1.8rem;
   text-decoration: none;
-  /* ランディングページのタイトルに合わせたグラデーション */
   background: linear-gradient(45deg, #FF8C42, #EE965F);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -78,19 +76,19 @@ const handleLogout = async () => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1.5rem;
-  border-radius: 50px; /* 角を丸くする */
+  border-radius: 50px;
   text-decoration: none;
   font-weight: bold;
   transition: all 0.3s ease;
   font-size: 0.9rem;
   border: 2px solid transparent;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /* 影を追加 */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   font-family: 'Poppins', sans-serif;
 }
 
 .btn:hover {
-  transform: translateY(-2px); /* ホバー時に少し浮き上がる */
+  transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
@@ -113,27 +111,14 @@ const handleLogout = async () => {
   border-color: #f79254ff;
 }
 
-/* ★★★ ログイン後のボタンもデザインを統一 ★★★ */
+/* ★★★ ログアウトボタンのデザインを更新 ★★★ */
 .logout {
-  background-color: #f3f4f6; /* 落ち着いたグレー */
-  color: #6b7280;
-  border-color: #e5e7eb;
+  background-color: #4b5563;  /* 落ち着いたダークグレー */
+  color: white;             /* 文字は白 */
+  border-color: #4b5563;   /* ボーダーも同色で統一 */
 }
 .logout:hover {
-  background-color: #e5e7eb;
-  color: #4b5563;
-}
-
-.mypage {
-  background-color: transparent;
-  color: #374151;
-  padding-left: 0.8rem; /* アイコンがあるので少し調整 */
-}
-.mypage:hover {
-  background-color: #f9fafb;
-}
-.mypage-icon {
-  font-size: 1.2rem;
+  background-color: #374151;  /* ホバーでさらに濃いグレーに */
+  border-color: #374151;
 }
 </style>
-

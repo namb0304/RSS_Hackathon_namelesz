@@ -125,6 +125,7 @@ input {
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1rem;
+  box-sizing: border-box; /* ← この行を追加 */
 }
 .btn-submit {
   width: 100%;

@@ -79,6 +79,7 @@ input {
   width: 100%;
   padding: 0.5rem;
   font-size: 1rem;
+  box-sizing: border-box; /* ← この行を追加 */
 }
 .button-group {
   display: flex;
