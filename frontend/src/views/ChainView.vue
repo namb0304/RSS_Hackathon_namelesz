@@ -123,14 +123,12 @@ const getColorByDepth = (depth) => {
     </div>
      
     <div v-else-if="chainPosts.length > 0" class="detail-container">
-      <!-- 左側：スレッド表示 -->
       <div class="detail-left">
         <button class="next-action-btn" @click="handleNextActionClick">
         この体験に触発されてあなたがしたアクションを投稿する
         </button>
          
         <div class="thread-container">
-          <!-- きっかけ投稿 (ルート) -->
           <div 
             v-if="rootPost" 
             class="thread-item thanks-post" 
@@ -162,13 +160,12 @@ const getColorByDepth = (depth) => {
             </div>
           </div>
            
-          <!-- NextAction投稿 -->
           <div 
             v-for="(post, index) in actionPosts" 
             :key="post.id"
             class="thread-item next-action"
             :class="{ highlight: highlightedPostIndex === index + 1 }"
-            @click="highlightThread(index + 1)"
+            :style="{ borderLeftColor: getColorByDepth(post.depth) }" @click="highlightThread(index + 1)"
           >
             <div class="thread-content">
               <div class="avatar" :style="{backgroundColor: getColorByDepth(post.depth)}">
@@ -189,20 +186,17 @@ const getColorByDepth = (depth) => {
                   </div>
                 </div>
               </div>
-              <div class="post-type-badge next-badge">
-                <span class="badge-icon">🔄</span>NextAction
+              <div class="post-type-badge next-badge" :style="{ backgroundColor: getColorByDepth(post.depth) }"> <span class="badge-icon">🔄</span>NextAction
               </div>
             </div>
           </div>
         </div>
       </div>
        
-      <!-- 右側：家系図・ツリー表示 -->
       <div class="detail-right">
         <div class="family-tree">
           <div class="tree-title">感謝の連鎖マップ <span class="tree-subtitle">(クリックで詳細表示)</span></div>
           <div class="tree-container">
-            <!-- ルートノード (感謝投稿) -->
             <div 
               v-if="rootPost"
               class="tree-node root" 
@@ -214,7 +208,6 @@ const getColorByDepth = (depth) => {
               <span class="node-tooltip">{{ rootPost.text.substring(0, 20) }}...</span>
             </div>
              
-            <!-- NextActionノード (動的配置) -->
             <template v-for="(post, index) in actionPosts" :key="post.id">
               <div 
                 class="tree-node" 
@@ -230,7 +223,6 @@ const getColorByDepth = (depth) => {
                 <span class="node-tooltip">{{ post.text.substring(0, 20) }}...</span>
               </div>
                
-              <!-- 接続線 -->
               <div 
                 class="tree-connector" 
                 :style="{
@@ -242,7 +234,6 @@ const getColorByDepth = (depth) => {
               ></div>
             </template>
 
-            <!-- 階層表示 -->
             <div class="tree-levels">
               <div class="level-marker" style="top: 50px; left: 10px;">Lv.0</div>
               <div v-for="level in Math.max(...chainPosts.map(p => p.depth || 0), 0)" :key="level" 
@@ -410,8 +401,9 @@ const getColorByDepth = (depth) => {
   border-left: 4px solid #FF8C42;
 }
 
+/* ★ 修正点: NextAction投稿のボーダー左側の色を動的に設定するため、style属性を使用 */
 .thread-item.next-action {
-  border-left: 4px solid #2196F3;
+  border-left: 4px solid; /* ここは基本の幅だけ定義 */
   margin-left: 20px;
 }
 
@@ -506,9 +498,10 @@ const getColorByDepth = (depth) => {
   background-color: #FF8C42;
 }
 
-.next-badge {
+/* ★ 修正点: NextActionバッジの色を動的に設定するため、style属性を使用 */
+/* .next-badge {
   background-color: #2196F3;
-}
+} */
 
 .badge-icon {
   margin-right: 4px;
@@ -671,4 +664,3 @@ const getColorByDepth = (depth) => {
   font-weight: bold;
 }
 </style>
-
