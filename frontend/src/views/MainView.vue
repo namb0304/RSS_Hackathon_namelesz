@@ -20,7 +20,16 @@ import { RouterView, RouterLink } from 'vue-router'
 .tabs {
   display: flex;
   border-bottom: 1px solid #eee;
-  margin-bottom: 2rem;
+
+  /* ★★★ ここからが変更点です ★★★ */
+  /* ヘッダーを固定するためのスタイル */
+  position: sticky;
+  /* メインヘッダー(約70px)の高さ分だけ下に配置 */
+  top: 70px;
+  /* スクロール時に下のコンテンツが透けないように背景色を指定 */
+  background-color: #FFFAF5; /* App.vueの背景色と合わせます */
+  /* 他の要素より手前に表示されるようにz-indexを指定 */
+  z-index: 999;
 }
 .tab-link {
   padding: 1rem 1.5rem;
@@ -37,4 +46,6 @@ import { RouterView, RouterLink } from 'vue-router'
   color: #dc8144ff;
   border-bottom-color: #dc8144ff;
 }
+
+
 </style>

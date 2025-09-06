@@ -296,8 +296,10 @@ const getColorByDepth = (depth) => {
   border-bottom: 1px solid #ddd;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   position: sticky;
-  top: 0;
-  z-index: 1000;
+  /* ★ 変更：メインヘッダー(約70px)の下に貼り付くように調整 */
+  top: 70px;
+  /* ★ 変更：メインヘッダーより奥に表示されるように調整 */
+  z-index: 999;
 }
 
 .back-link {
@@ -347,7 +349,8 @@ const getColorByDepth = (depth) => {
   .detail-right {
     flex: 4;
     position: sticky;
-    top: 80px;
+    /* ★ 変更：メインヘッダーとこのページのヘッダーの下にくるように調整 */
+    top: 125px; 
     align-self: flex-start;
   }
 }
@@ -668,3 +671,4 @@ const getColorByDepth = (depth) => {
   font-weight: bold;
 }
 </style>
+

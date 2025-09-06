@@ -18,7 +18,7 @@ const handleLogout = async () => {
 <template>
   <header class="header">
     <div class="logo">
-      <RouterLink :to="user ? '/timeline' : '/'">Thanks</RouterLink>
+      <RouterLink :to="user ? '/main/recent' : '/'">Thanks</RouterLink>
     </div>
     
     <nav v-if="!user" class="auth-nav">
@@ -39,7 +39,7 @@ const handleLogout = async () => {
 
 <style scoped>
 /* ★★★ ランディングページとフォントを統一 ★★★ */
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@800&family=Poppins:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.comcom/css2?family=Nunito:wght@800&family=Poppins:wght@400;700&display=swap');
 
 .header {
   display: flex;
@@ -50,6 +50,14 @@ const handleLogout = async () => {
   border-bottom: 1px solid #fdeee0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   font-family: 'Poppins', sans-serif;
+  
+  /* ★★★ ここからが追加したスタイルです ★★★ */
+  position: fixed; /* 要素を画面に固定する */
+  top: 0;          /* 画面の上端を基準にする */
+  left: 0;         /* 画面の左端を基準にする */
+  width: 100%;     /* 横幅を画面全体に広げる */
+  z-index: 1000;   /* 他の要素より手前に表示する */
+  box-sizing: border-box; /* paddingを含めてwidthを100%にする */
 }
 
 .logo a {
@@ -85,6 +93,7 @@ const handleLogout = async () => {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   font-family: 'Poppins', sans-serif;
+  white-space: nowrap; /* ボタン内のテキストが改行しないようにする */
 }
 
 .btn:hover {
@@ -121,4 +130,29 @@ const handleLogout = async () => {
   background-color: #374151;  /* ホバーでさらに濃いグレーに */
   border-color: #374151;
 }
+
+/* ★★★ スマートフォンなど画面が小さい端末向けの調整 ★★★ */
+@media (max-width: 480px) {
+  .header {
+    /* 横の余白を少し狭くして、ボタンがはみ出るのを防ぎます */
+    padding: 0.8rem 1rem;
+  }
+
+  .logo a {
+    /* ロゴも少し小さくしてスペースを確保します */
+    font-size: 1.5rem;
+  }
+
+  .btn {
+    /* ボタンの余白と文字サイズを少し小さくします */
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .auth-nav {
+    /* ボタン同士の間隔を少し狭くします */
+    gap: 0.5rem;
+  }
+}
 </style>
+
