@@ -126,7 +126,7 @@ const getColorByDepth = (depth) => {
       <!-- 左側：スレッド表示 -->
       <div class="detail-left">
         <button class="next-action-btn" @click="handleNextActionClick">
-          <span class="btn-icon">🔄</span> この体験に触発されて次のアクションを投稿する
+        この体験に触発されてあなたがしたアクションを投稿する
         </button>
          
         <div class="thread-container">
@@ -256,15 +256,15 @@ const getColorByDepth = (depth) => {
 
         <div class="chain-stats">
           <div class="stat-item">
-            <div class="stat-label">連鎖の深さ</div>
+            <div class="stat-label">階層の深さ凸</div>
             <div class="stat-value">{{ Math.max(...chainPosts.map(p => p.depth || 0), 0) }}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">アクション数</div>
+            <div class="stat-label">アクション数🔄</div>
             <div class="stat-value">{{ actionPosts.length }}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">総いいね数</div>
+            <div class="stat-label">総いいね数❤️</div>
             <div class="stat-value">{{ chainPosts.reduce((sum, post) => sum + (post.likeCount || 0), 0) }}</div>
           </div>
         </div>
