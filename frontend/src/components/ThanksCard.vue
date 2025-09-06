@@ -8,7 +8,7 @@ defineProps({
   <RouterLink :to="{ name: 'chain', params: { id: post.id } }" class="card-link">
   <div class="card">
       <p class="author">
-        投稿者: {{ post.isAnonymous ? '匿名さん' : post.author }}
+        投稿者: {{ post.isAnonymous ? '匿名さん' :  post.authorName }}
       </p>
       <p class="text">
         {{ post.text }}
