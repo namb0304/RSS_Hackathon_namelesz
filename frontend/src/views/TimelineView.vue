@@ -28,7 +28,7 @@ const handleModalClose = () => {
 <template>
   <main>
     <div class="header">
-      <h1>Onde タイムライン</h1>
+      <h1>Thanks タイムライン</h1>
       <button @click="isModalOpen = true" class="btn-post">投稿する</button>
     </div>
     

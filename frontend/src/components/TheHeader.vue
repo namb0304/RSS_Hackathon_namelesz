@@ -19,7 +19,7 @@ const handleLogout = async () => {
   <header class="header">
     <div class="logo">
       <!-- ★★★ ログイン状態に関わらず、ロゴクリックで適切なページへ飛ぶように変更 ★★★ -->
-      <RouterLink :to="user ? '/timeline' : '/'">ThanksRelay</RouterLink>
+      <RouterLink :to="user ? '/timeline' : '/'">Thanks</RouterLink>
     </div>
     
     <nav v-if="!user" class="auth-nav">

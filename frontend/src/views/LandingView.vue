@@ -1,7 +1,7 @@
 <template>
   <div class="landing-container">
     <main class="content">
-      <h1 class="title">Onde</h1>
+      <h1 class="title">Thanks</h1>
       <p class="subtitle">あなたの「ありがとう」が、次の誰かの優しさになる。</p>
       <div class="actions">
         <RouterLink to="/register" class="btn signup">無料で始める</RouterLink>
