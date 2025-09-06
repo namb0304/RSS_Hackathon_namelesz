@@ -35,13 +35,14 @@ import { RouterLink } from 'vue-router'
 /* フォントをGoogle Fontsからインポート */
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@850&family=Poppins:wght@400;700&display=swap');
 
-/* ★★★ ページ全体コンテナに背景を適用 ★★★ */
+/* ★★★ ページ全体コンテナに背景と横スクロール防止を追加 ★★★ */
 .page-container {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 80px); /* ヘッダーの高さを考慮 */
   background: linear-gradient(135deg, #FFF7F0 0%, #FFFAF5 100%);
   font-family: 'Poppins', sans-serif;
+  overflow-x: hidden; /* ★ 横スクロールを防止します */
 }
 
 .landing-container {
@@ -51,7 +52,6 @@ import { RouterLink } from 'vue-router'
   flex-grow: 1; 
   padding: 2rem;
   text-align: center;
-  /* ★★★ 背景を親に移動したため、ここは削除 ★★★ */
   position: relative;
   overflow: hidden; 
 }
@@ -76,7 +76,7 @@ import { RouterLink } from 'vue-router'
 }
 
 .subtitle {
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   color: #6C6C6C;
   margin-bottom: 3.5rem;
   line-height: 1.8;
@@ -86,7 +86,7 @@ import { RouterLink } from 'vue-router'
 .actions {
   display: flex;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 3rem;
 }
 
 .btn {
@@ -95,7 +95,7 @@ import { RouterLink } from 'vue-router'
   text-decoration: none;
   font-weight: bold;
   transition: all 0.3s ease;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   border: 2px solid transparent;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
@@ -142,7 +142,7 @@ import { RouterLink } from 'vue-router'
   100% { transform: translateY(0) rotate(360deg); }
 }
 
-/* --- ★★★ フッターのスタイルを更新 ★★★ --- */
+/* --- フッターのスタイル --- */
 .footer {
   width: 100%;
   padding: 2.5rem;
@@ -150,7 +150,6 @@ import { RouterLink } from 'vue-router'
   text-align: center;
   color: #bcaaa4; /* 背景に馴染む、少し濃いめの色に変更 */
   font-size: 0.9rem;
-  /* border-top: 1px solid #fdeee0; */ /* 透明にしたので境界線は不要に */
 }
 
 .footer p {
@@ -176,4 +175,3 @@ import { RouterLink } from 'vue-router'
   color: #FF8C42; /* メインのオレンジ色に */
 }
 </style>
-
