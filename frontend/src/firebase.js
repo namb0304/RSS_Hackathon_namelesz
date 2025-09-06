@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { 
   getFirestore, 
   collection, 
@@ -8,8 +9,12 @@ import {
   query, 
   where, 
   orderBy, 
-  doc, 
+  doc,
+  getDoc,
+  setDoc,
   deleteDoc,
+  updateDoc,
+  increment,
   runTransaction 
 } from "firebase/firestore";
 
@@ -26,6 +31,7 @@ const firebaseConfig = {
 // Firebaseを初期化
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+export const auth = getAuth(app);
 const postsCollection = collection(db, 'posts');
 
 /**
@@ -58,9 +64,7 @@ export const addNextAction = async ({ text, authorId, isAnonymous, parentPostId,
   const parentThanksRef = doc(db, "posts", parentPostId);
   await runTransaction(db, async (transaction) => {
     const parentThanksDoc = await transaction.get(parentThanksRef);
-    if (!parentThanksDoc.exists()) {
-      throw "Parent document does not exist!";
-    }
+    if (!parentThanksDoc.exists()) throw "Parent document does not exist!";
     const newActionCount = (parentThanksDoc.data().actionCount || 0) + 1;
     transaction.update(parentThanksRef, { actionCount: newActionCount });
     const newActionRef = collection(db, 'posts');
@@ -86,26 +90,25 @@ export const getChain = async (postId) => {
 };
 
 /**
+ * 投稿に「いいね」を追加する（likeCountを1増やす）
+ */
+export const likePost = async (postId) => {
+  const docRef = doc(db, "posts", postId);
+  await updateDoc(docRef, {
+    likeCount: increment(1)
+  });
+};
+
+/**
  * 投稿をIDで指定して削除する関数
- * @param {string} postId - 削除したい投稿のID
  */
 export const deletePost = async (postId) => {
-  // 削除したいドキュメントへの参照を作成
   const docRef = doc(db, "posts", postId);
-  
-  try {
-    // ドキュメントを削除
-    await deleteDoc(docRef);
-    console.log(`Document with ID: ${postId} has been deleted successfully.`);
-  } catch (error) {
-    console.error("Error deleting document: ", error);
-  }
+  await deleteDoc(docRef);
 };
 
 /**
  * 匿名でサインインする関数
- * アプリ起動時に一度だけ呼び出す
- * @returns {Promise<UserCredential>} ユーザー情報
  */
 export const signIn = async () => {
   return await signInAnonymously(auth);
@@ -113,57 +116,54 @@ export const signIn = async () => {
 
 /**
  * ユーザーのログイン状態を監視する関数
- * ログイン状態が変化するたびに、指定した処理を実行する
- * @param {function} callback - ユーザー情報を受け取るコールバック関数
  */
 export const onAuth = (callback) => {
-  // onAuthStateChangedは、ログイン時、ログアウト時、ページ読み込み時にユーザー状態をチェックしてくれる
   return onAuthStateChanged(auth, (user) => {
-    callback(user); // フロントエンドに現在のユーザー情報を渡す
+    callback(user);
   });
 };
 
 /**
- * 投稿に「いいね」を追加する（likeCountを1増やす）
- * @param {string} postId - いいねする投稿のID
+ * メールアドレスとパスワードで新規ユーザーを登録する関数
  */
-export const likePost = async (postId) => {
-  const docRef = doc(db, "posts", postId);
-  try {
-    // increment(1) を使うことで、安全に数値を1増やすことができる
-    await updateDoc(docRef, {
-      likeCount: increment(1)
-    });
-  } catch (error) {
-    console.error("Error liking post: ", error);
-  }
+export const registerWithEmail = async (email, password) => {
+  return await createUserWithEmailAndPassword(auth, email, password);
 };
 
 /**
  * usersコレクションにユーザー情報を作成・更新する
- * @param {object} user - Firebase Authから取得したユーザーオブジェクト
- * @param {object} additionalData - 保存したい追加情報（例: displayName）
  */
 export const createUserProfile = async (user, additionalData = {}) => {
-  if (!user) return; // ユーザーがなければ何もしない
+  if (!user) return; 
 
-  const userRef = doc(db, "users", user.uid); // ユーザーIDをドキュメントIDとして利用
+  const userRef = doc(db, "users", user.uid);
   const userDoc = await getDoc(userRef);
 
-  // まだプロフィールが作成されていなければ、新規作成
   if (!userDoc.exists()) {
     const { displayName, email } = user;
     const createdAt = serverTimestamp();
-    try {
-      await setDoc(userRef, {
-        uid: user.uid,
-        displayName: displayName || '名無しさん',
-        email,
-        createdAt,
-        ...additionalData,
-      });
-    } catch (error) {
-      console.error("Error creating user profile: ", error);
-    }
+    await setDoc(userRef, {
+      uid: user.uid,
+      displayName: displayName || '名無しさん',
+      email,
+      createdAt,
+      ...additionalData,
+    });
   }
+};
+/**
+ * メールアドレスとパスワードでログインする関数
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<UserCredential>} ユーザー情報
+ */
+export const loginWithEmail = async (email, password) => {
+  return await signInWithEmailAndPassword(auth, email, password);
+};
+
+/**
+ * ログアウトする関数
+ */
+export const logout = async () => {
+  return await signOut(auth);
 };
