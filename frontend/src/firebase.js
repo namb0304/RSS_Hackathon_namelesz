@@ -128,35 +128,50 @@ export const getChain = async (postId) => {
   return actions;
 };
 
+// 既存の likePost 関数を、この新しいバージョンに置き換えてください
+
+// likePost 関数を、この最終版のコードで完全に置き換えてください
+
 /**
- * 投稿に「いいね」を追加/削除する（トグル機能）
+ * 投稿に「いいね」を追加する（1ユーザー10回まで／一覧表示対応版）
  */
 export const likePost = async (postId, userId) => {
   const docRef = doc(db, "posts", postId);
-  
-  // トランザクションで安全にいいね処理を行う
-  await runTransaction(db, async (transaction) => {
-    const postDoc = await transaction.get(docRef);
-    if (!postDoc.exists()) {
-      throw "Document does not exist!";
-    }
 
-    const postData = postDoc.data();
-    // 既にいいねしているかチェック
-    if (postData.likedBy && postData.likedBy.includes(userId)) {
-      // いいね済みなら、IDを削除してカウントを1減らす
-      transaction.update(docRef, {
-        likedBy: arrayRemove(userId),
-        likeCount: increment(-1)
-      });
-    } else {
-      // いいねしてなければ、IDを追加してカウントを1増やす
-      transaction.update(docRef, {
-        likedBy: arrayUnion(userId),
-        likeCount: increment(1)
-      });
-    }
-  });
+  try {
+    await runTransaction(db, async (transaction) => {
+      const postDoc = await transaction.get(docRef);
+      if (!postDoc.exists()) {
+        throw "投稿が見つかりません";
+      }
+
+      const postData = postDoc.data();
+      const currentUserLikeCount = postData.likesMap?.[userId] || 0;
+
+      if (currentUserLikeCount < 10) {
+        const userLikesField = `likesMap.${userId}`;
+        
+        // ★★★ ここからが変更点 ★★★
+        const updateData = {
+          [userLikesField]: increment(1), // ユーザー個人のカウントを+1
+          likeCount: increment(1)       // 投稿全体の合計カウントも+1
+        };
+
+        // このユーザーからの「いいね」が初回の場合のみ、likedBy配列にIDを追加する
+        if (currentUserLikeCount === 0) {
+          updateData.likedBy = arrayUnion(userId);
+        }
+        // ★★★ ここまでが変更点 ★★★
+
+        transaction.update(docRef, updateData);
+
+      } else {
+        console.log("いいねは10回までです。");
+      }
+    });
+  } catch (error) {
+    console.error("いいね処理に失敗しました:", error);
+  }
 };
 
 /**
