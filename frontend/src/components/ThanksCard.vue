@@ -1,7 +1,8 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
-import { getUserProfile, getChain } from '../firebase'
+import { getUserProfile, getChain, likePost } from '../firebase' // ★ likePost をインポート
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
+import { user } from '../store/user' // ★ ユーザー情報をインポート
 import { RouterLink } from 'vue-router'
 
 const props = defineProps({
@@ -37,10 +38,7 @@ onMounted(async () => {
   // NextActionデータの取得（最大2件まで）
   if (props.post.actionCount > 0) {
     try {
-      console.log(`Getting chain for post ID: ${props.post.id}`)
       const actions = await getChain(props.post.id)
-      console.log("Retrieved actions:", actions)
-      
       if (actions && actions.length > 0) {
         // 最新の2件を取得
         actionPreviews.value = actions.slice(0, 2)
@@ -94,6 +92,48 @@ const remainingActions = computed(() => {
   const shown = actionPreviews.value.length;
   return total > shown ? total - shown : 0;
 });
+
+// ★★★ ここからが新しい「いいね」関連の処理です ★★★
+
+// ログイン中のユーザーがいいねした回数を計算する
+const myLikeCount = computed(() => {
+  if (!user.value || !props.post.likesMap) {
+    return 0;
+  }
+  return props.post.likesMap[user.value.uid] || 0;
+});
+
+// いいねボタンが押された時の処理
+const handleLike = async () => {
+  if (!user.value) {
+    alert("いいねするにはログインが必要です。");
+    return;
+  }
+  if (myLikeCount.value >= 10) {
+    alert("いいねは一投稿につき10回までです！");
+    return;
+  }
+  
+  try {
+    // 楽観的UI更新：まずローカルのデータを先に更新して画面に即時反映
+    if (props.post.likeCount === undefined) props.post.likeCount = 0;
+    props.post.likeCount++;
+    
+    if (!props.post.likesMap) props.post.likesMap = {};
+    if (!props.post.likesMap[user.value.uid]) props.post.likesMap[user.value.uid] = 0;
+    props.post.likesMap[user.value.uid]++;
+    
+    // 裏側でデータベースの更新を呼び出す
+    await likePost(props.post.id, user.value.uid);
+
+  } catch (error) {
+    console.error("いいね処理中にエラー:", error)
+    // エラーが起きたら、画面の表示を元に戻す
+    props.post.likeCount--;
+    props.post.likesMap[user.value.uid]--;
+    alert("いいねに失敗しました。");
+  }
+}
 </script>
 
 <template>
@@ -155,7 +195,10 @@ const remainingActions = computed(() => {
     
     <div class="card-footer">
       <div class="metrics">
-        <span class="like-button">❤️ {{ props.post.likeCount || 0 }}</span>
+        <!-- ★ いいねボタンにクリックイベントを追加 -->
+        <button @click="handleLike" class="like-button" :title="`10回までいいねできます (現在: ${myLikeCount}回)`">
+          ❤️ {{ props.post.likeCount || 0 }}
+        </button>
         <span class="action-count">🔄 {{ props.post.actionCount || 0 }}</span>
       </div>
       <button @click="handleReplyClick" class="reply-button">続ける</button>
@@ -364,6 +407,15 @@ const remainingActions = computed(() => {
   display: flex;
   align-items: center;
   cursor: pointer;
+}
+
+/* ★ like-button を button タグ用に調整 */
+.like-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
 }
 
 .like-button:hover {
