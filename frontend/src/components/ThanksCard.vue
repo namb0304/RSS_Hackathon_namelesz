@@ -1,6 +1,6 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
-import { getUserProfile } from '../firebase'
+import { getUserProfile, getChain } from '../firebase'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
 import { RouterLink } from 'vue-router'
 
@@ -13,18 +13,45 @@ const props = defineProps({
 
 const authorName = ref('匿名ユーザー')
 const authorAvatar = ref(null)
+const actionPreviews = ref([])
+const isLoadingActions = ref(true)
+
+// 著者のプロフィールをキャッシュするオブジェクト
+const authorProfiles = ref({})
 
 onMounted(async () => {
-  if (props.post.isAnonymous) return
-  
-  try {
-    const profile = await getUserProfile(props.post.authorId)
-    if (profile) {
-      authorName.value = profile.displayName || '名前未設定のユーザー'
-      authorAvatar.value = profile.photoURL || null
+  // 投稿者の情報を取得
+  if (!props.post.isAnonymous) {
+    try {
+      const profile = await getUserProfile(props.post.authorId)
+      if (profile) {
+        authorName.value = profile.displayName || '名前未設定のユーザー'
+        authorAvatar.value = profile.photoURL || null
+        authorProfiles.value[props.post.authorId] = profile
+      }
+    } catch (error) {
+      console.error("ユーザープロフィールの取得に失敗:", error)
     }
-  } catch (error) {
-    console.error("ユーザープロフィールの取得に失敗:", error)
+  }
+  
+  // NextActionデータの取得（最大2件まで）
+  if (props.post.actionCount > 0) {
+    try {
+      console.log(`Getting chain for post ID: ${props.post.id}`)
+      const actions = await getChain(props.post.id)
+      console.log("Retrieved actions:", actions)
+      
+      if (actions && actions.length > 0) {
+        // 最新の2件を取得
+        actionPreviews.value = actions.slice(0, 2)
+      }
+    } catch (error) {
+      console.error("アクションの取得に失敗:", error)
+    } finally {
+      isLoadingActions.value = false
+    }
+  } else {
+    isLoadingActions.value = false
   }
 })
 
@@ -61,28 +88,11 @@ const handleReplyClick = (event) => {
   isPostFormModalOpen.value = true;
 };
 
-// 関連するアクションの数が表示するプレビューの数を超えた場合は「もっと見る」を表示
-const showMoreLink = computed(() => {
-  return (props.post.actionCount || 0) > 0;
-});
-
-// プレビュー表示するアクション（最大2件）
-const previewItems = computed(() => {
-  if (props.post.actionCount <= 0) return [];
-  
-  // 実際のデータは取得できないため、ダミーデータを生成
-  // 実際の実装では、firebase.jsに関連アクションを取得する関数を追加する必要があります
-  const dummyItems = [];
-  const count = Math.min(props.post.actionCount, 2);
-  
-  for (let i = 0; i < count; i++) {
-    dummyItems.push({
-      initial: String.fromCharCode(65 + i),
-      text: `ユーザーがこの体験に触発されて行動しました`
-    });
-  }
-  
-  return dummyItems;
+// 残りのアクション数
+const remainingActions = computed(() => {
+  const total = props.post.actionCount || 0;
+  const shown = actionPreviews.value.length;
+  return total > shown ? total - shown : 0;
 });
 </script>
 
@@ -109,23 +119,38 @@ const previewItems = computed(() => {
       </div>
     </div>
     
-    <div class="branch-preview" v-if="showMoreLink">
+    <div class="branch-preview" v-if="props.post.actionCount > 0">
       <div class="preview-title">
         <span class="preview-icon">🔄</span>
         <span>次のアクション ({{ props.post.actionCount }})</span>
       </div>
       
-      <!-- アクションのプレビュー表示 -->
-      <div v-if="previewItems.length > 0" class="preview-items">
-        <div v-for="(item, index) in previewItems" :key="index" class="preview-item">
-          <div class="preview-avatar">{{ item.initial }}</div>
-          <span class="preview-text">{{ item.text }}</span>
-        </div>
+      <!-- ローディング表示 -->
+      <div v-if="isLoadingActions" class="preview-loading">
+        <div class="loading-spinner"></div>
+        <span>読み込み中...</span>
       </div>
       
-      <RouterLink :to="{ name: 'chain', params: { id: props.post.id } }" class="more-link">
-        すべてのアクションを見る
-      </RouterLink>
+      <!-- シンプルなアクションプレビュー -->
+      <div v-else-if="actionPreviews.length > 0" class="action-previews">
+        <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
+          {{ action.text }}
+        </div>
+        
+        <!-- 残りのアクションがある場合 -->
+        <RouterLink 
+          v-if="remainingActions > 0"
+          :to="{ name: 'chain', params: { id: props.post.id } }" 
+          class="more-actions-link"
+        >
+          他{{ remainingActions }}件のアクションを見る
+        </RouterLink>
+      </div>
+      
+      <!-- アクションがない場合 -->
+      <div v-else class="no-actions">
+        <p>アクションの読み込みに失敗しました</p>
+      </div>
     </div>
     
     <div class="card-footer">
@@ -146,6 +171,7 @@ const previewItems = computed(() => {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 16px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 16px;
 }
 
 .card:hover {
@@ -245,7 +271,7 @@ const previewItems = computed(() => {
 .preview-title {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   font-weight: 500;
   color: #444;
 }
@@ -254,52 +280,67 @@ const previewItems = computed(() => {
   margin-right: 6px;
 }
 
-.preview-items {
-  margin-bottom: 10px;
-}
-
-.preview-item {
+/* ローディング表示 */
+.preview-loading {
   display: flex;
   align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid #eee;
-}
-
-.preview-item:last-child {
-  border-bottom: none;
-}
-
-.preview-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background-color: #e0e0e0;
-  display: flex;
   justify-content: center;
-  align-items: center;
-  font-size: 0.7rem;
+  padding: 10px 0;
   color: #666;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.preview-text {
   font-size: 0.9rem;
-  color: #555;
 }
 
-.more-link {
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #FF8C42;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* シンプルなアクションプレビュー */
+.action-previews {
+  margin-bottom: 8px;
+}
+
+.action-preview-item {
+  background-color: white;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  line-height: 1.4;
+  border-left: 3px solid #2196F3;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.more-actions-link {
   display: block;
   text-align: center;
-  color: #FF8C42;
-  text-decoration: none;
-  font-weight: 500;
+  color: #2196F3;
+  font-size: 0.85rem;
   padding: 6px;
-  font-size: 0.9rem;
+  text-decoration: none;
 }
 
-.more-link:hover {
+.more-actions-link:hover {
   text-decoration: underline;
+}
+
+.no-actions {
+  text-align: center;
+  padding: 10px;
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
 }
 
 /* カードフッター */
@@ -309,6 +350,7 @@ const previewItems = computed(() => {
   align-items: center;
   padding-top: 12px;
   border-top: 1px solid #eee;
+  margin-top: 8px;
 }
 
 .metrics {
