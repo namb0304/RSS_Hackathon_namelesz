@@ -5,9 +5,9 @@ import { RouterView, RouterLink } from 'vue-router'
 <template>
   <div class="main-container">
     <nav class="tabs">
-      <RouterLink to="/main/recent" class="tab-link">最新の投稿</RouterLink>
-      <RouterLink to="/main/search" class="tab-link">検索</RouterLink>
-      <RouterLink to="/main/ranking" class="tab-link">ランキング</RouterLink>
+    <RouterLink to="/main/recent" class="tab-link">最新の投稿</RouterLink>
+    <RouterLink to="/main/search" class="tab-link">検索</RouterLink>
+    <RouterLink to="/main/ranking" class="tab-link">ランキング</RouterLink>
     </nav>
     <div class="content">
       <RouterView />

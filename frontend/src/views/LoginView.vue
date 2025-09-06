@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { loginWithEmail } from '../firebase' // 作成した関数をインポート
+import { useRouter, RouterLink } from 'vue-router' // ★ RouterLink をインポート
+import { loginWithEmail } from '../firebase'
 
 const email = ref('')
 const password = ref('')
@@ -12,23 +12,16 @@ const handleLogin = async () => {
     alert('メールアドレスとパスワードを入力してください。')
     return
   }
-
   try {
-    // Firebaseのログイン機能を呼び出す
     const userCredential = await loginWithEmail(email.value, password.value)
     console.log('ログインに成功しました！:', userCredential.user)
-
-    
-    // ホームページにリダイレクト
     router.push('/main')
-
   } catch (error) {
     console.error('ログインエラー:', error.code)
-    
-    // エラーコードに応じてアラートを出し分け
     switch (error.code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
+      case 'auth/invalid-credential': // ★ 新しいFirebaseバージョン用のエラーコードを追加
         alert('メールアドレスまたはパスワードが間違っています。')
         break
       case 'auth/invalid-email':
@@ -43,55 +36,119 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="auth-container">
-    <h1>ログイン</h1>
-    <div class="form-group">
-      <label for="email">メールアドレス</label>
-      <input type="email" id="email" v-model="email" />
-    </div>
-    <div class="form-group">
-      <label for="password">パスワード</label>
-      <input type="password" id="password" v-model="password" />
-    </div>
-    <div class="button-group">
-      <button @click="handleLogin">ログインする</button>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h2 class="card-title">おかえりなさい</h2>
+      <form @submit.prevent="handleLogin">
+        <div class="form-group">
+          <label for="email">メールアドレス</label>
+          <input type="email" id="email" v-model="email" placeholder="email@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="password">パスワード</label>
+          <input type="password" id="password" v-model="password" placeholder="パスワード" required />
+        </div>
+        <button type="submit" class="btn-primary">ログイン</button>
+      </form>
+      <p class="register-prompt">
+        アカウントをお持ちでないですか？ <RouterLink to="/register" class="register-link">新規登録</RouterLink>
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* RegisterView.vueと共通のスタイル */
-.auth-container {
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-}
-.form-group {
-  margin-bottom: 1rem;
-}
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-input {
-  width: 100%;
-  padding: 0.5rem;
-  font-size: 1rem;
-  box-sizing: border-box; /* ← この行を追加 */
-}
-.button-group {
+/* RegisterView.vueと共通の温かみのあるデザイン */
+.auth-wrapper {
+  min-height: 100vh;
+  background-color: #fcf8f5;
   display: flex;
   justify-content: center;
-  margin-top: 1.5rem;
+  align-items: center;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
 }
-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  background-color: #007bff; /* ログインボタンの色 */
+
+.auth-card {
+  width: 100%;
+  max-width: 450px;
+  background-color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  padding: 3rem 2.5rem;
+}
+
+.card-title {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  color: #ee965fff;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.form-group {
+  margin-bottom: 1.8rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.6rem;
+  color: #555;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+input {
+  width: 100%;
+  padding: 1rem 1.2rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: #f7c9aa;
+  box-shadow: 0 0 0 3px rgba(238, 150, 95, 0.2);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 1.1rem;
+  background-color: #ee965fff;
   color: white;
-  border-radius: 5px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
   cursor: pointer;
+  margin-top: 2rem;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover {
+  background-color: #e57d3c;
+  transform: translateY(-2px);
+}
+
+.register-prompt {
+  text-align: center;
+  margin-top: 2.5rem;
+  color: #777;
+  font-size: 0.95rem;
+}
+
+.register-link {
+  color: #ee965fff;
+  text-decoration: none;
+  font-weight: bold;
+  transition: color 0.2s ease;
+}
+
+.register-link:hover {
+  color: #e57d3c;
+  text-decoration: underline;
 }
 </style>
