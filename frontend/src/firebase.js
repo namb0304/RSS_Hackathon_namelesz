@@ -308,18 +308,13 @@ export const getPostChain = async (postId) => {
   }
 
   const startPost = startPostSnap.data();
-  // 起点となるThanks投稿のIDを正しく取得
   const rootId = startPost.type === 'thanks' ? startPostSnap.id : startPost.rootPostId;
 
   if (!rootId) {
     console.error("チェーンの起点(rootId)が見つかりません。");
-    // Thanks単体の場合でも配列で返す
     return [{ id: startPostSnap.id, ...startPost }];
   }
 
-  // --- チェーン全体の投稿を取得するロジックを修正 ---
-  
-  // 1. まず起点となるThanks投稿を取得
   const rootPostRef = doc(db, "posts", rootId);
   const rootPostSnap = await getDoc(rootPostRef);
   if (!rootPostSnap.exists()) {
@@ -327,14 +322,21 @@ export const getPostChain = async (postId) => {
     return null;
   }
   
-  const posts = [{ id: rootPostSnap.id, ...rootPostSnap.data() }];
+  // Thanks投稿を配列の最初に追加。replyToは無いのでnull
+  const posts = [{ id: rootPostSnap.id, ...rootPostSnap.data(), replyTo: null }];
   
-  // 2. 次にそれに続くActionを全て取得
   const q = query(postsCollection, where("rootPostId", "==", rootId));
   const querySnapshot = await getDocs(q);
 
+  // ★★★ ここが修正の中心です ★★★
+  // Action投稿を配列に追加する際、parentPostIdをreplyToにマッピングします。
   querySnapshot.forEach((doc) => {
-    posts.push({ id: doc.id, ...doc.data() });
+    const postData = doc.data();
+    posts.push({ 
+      id: doc.id, 
+      ...postData, 
+      replyTo: postData.parentPostId || null // これが重要！
+    });
   });
 
   // depth（階層）でソートして返す
