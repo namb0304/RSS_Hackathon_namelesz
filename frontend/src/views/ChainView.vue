@@ -28,7 +28,7 @@ onMounted(async () => {
   }
 })
 
-// 全著者のプロフィール情報を取得
+// 全著者のプロフィール情報を取得a
 const loadAuthorProfiles = async (posts) => {
   const authorIds = [...new Set(
     posts
