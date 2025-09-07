@@ -79,7 +79,16 @@ const handleLike = async (post, event) => {
   }
 }
 
-
+/**
+ * 指定された投稿に対して返信モーダルを開きます。
+ * @param {object} post - 返信対象の投稿オブジェクト
+ * @param {Event} event - クリックイベント
+ */
+const handleReply = (post, event) => {
+  event.stopPropagation(); // 親要素のクリックイベント（ハイライト処理）が発火するのを防ぐ
+  replyToPost.value = post;
+  isPostFormModalOpen.value = true;
+};
 
 const getMyLikeCount = (post) => {
   if (!user.value || !post.likesMap) return 0;
@@ -96,7 +105,6 @@ const getColorByDepth = (depth) => {
  * 家系図のレイアウト（ノードの位置と親子を結ぶ線）を計算します。
  */
 const treeLayout = computed(() => {
-  // --- DEBUG 1 ---
   console.log('--- 🌳 家系図の計算を開始します ---');
   
   const nodes = [];
@@ -139,7 +147,6 @@ const treeLayout = computed(() => {
     nodePositions.set(post.id, { top, left });
   });
 
-  // --- DEBUG 2 ---
   console.log('✅ ノードが生成されました:', JSON.parse(JSON.stringify(nodes)));
   console.log('🗺️ ノードの座標が保存されました:', nodePositions);
 
@@ -148,13 +155,11 @@ const treeLayout = computed(() => {
       const parentPos = nodePositions.get(node.replyTo);
       const childPos = nodePositions.get(node.id);
       
-      // --- DEBUG 3 ---
       if (!parentPos) {
         console.warn(`❗️ 親ノードが見つかりません。投稿ID: ${node.id}, 親のID: ${node.replyTo}`);
       }
 
       if (parentPos && childPos) {
-        // --- DEBUG 4 ---
         console.log(`🔗 線を作成します: 親(${node.replyTo}) -> 子(${node.id})`, { parentPos, childPos });
         connectors.push({
           id: `${node.replyTo}-${node.id}`,
@@ -170,14 +175,12 @@ const treeLayout = computed(() => {
   const maxDepth = Math.max(...chainPosts.value.map(p => p.depth || 0), 0);
   const containerHeight = 120 + maxDepth * 100;
 
-  // --- DEBUG 5 ---
   console.log('🏁 最終的に生成された線のデータ:', JSON.parse(JSON.stringify(connectors)));
   console.log(`--- 🌳 家系図の計算が完了しました。線は ${connectors.length} 本です ---`);
 
   return { nodes, connectors, containerHeight };
 });
 
-// ... highlightedFamilyIds 以下のスクリプトは変更ありません ...
 const highlightedFamilyIds = computed(() => {
   const family = { parent: null, self: null, children: [] };
   if (highlightedPostIndex.value < 0 || highlightedPostIndex.value >= chainPosts.value.length) {
@@ -274,7 +277,6 @@ const handleNextActionClick = () => {
                   </div>
                 </div>
                 
-                <!-- いいねボタンを追加 -->
                 <div class="thread-actions">
                   <button @click="handleLike(rootPost, $event)" class="like-button" :title="`10回までいいねできます`">
                     <span>❤️ {{ rootPost.likeCount || 0 }}</span>
@@ -282,6 +284,7 @@ const handleNextActionClick = () => {
                       ({{ getMyLikeCount(rootPost) }}/10)
                     </span>
                   </button>
+                  <button @click="handleReply(rootPost, $event)" class="reply-button">続ける</button>
                 </div>
               </div>
               <div class="post-type-badge thanks-badge">
@@ -316,7 +319,6 @@ const handleNextActionClick = () => {
                   </div>
                 </div>
                 
-                <!-- いいねボタンを追加 -->
                 <div class="thread-actions">
                   <button @click="handleLike(post, $event)" class="like-button" :title="`10回までいいねできます`">
                     <span>❤️ {{ post.likeCount || 0 }}</span>
@@ -324,6 +326,7 @@ const handleNextActionClick = () => {
                       ({{ getMyLikeCount(post) }}/10)
                     </span>
                   </button>
+                  <button @click="handleReply(post, $event)" class="reply-button">続ける</button>
                 </div>
               </div>
               <div class="post-type-badge next-badge" :style="{ backgroundColor: getColorByDepth(post.depth) }"> <span class="badge-icon">🔄</span>NextAction
@@ -341,7 +344,6 @@ const handleNextActionClick = () => {
             :style="{ height: `${treeLayout.containerHeight}px` }"
             :class="{ 'has-selection': !!highlightedFamilyIds.self }"
           >
-            <!-- 親子を結ぶ線をSVGで描画 -->
             <svg class="tree-svg-connectors">
             <defs>
                 <marker
@@ -386,7 +388,6 @@ const handleNextActionClick = () => {
             />
             </svg>
             
-            <!-- 各投稿をノードとして表示 -->
             <div
               v-for="node in treeLayout.nodes"
               :key="node.id"
@@ -405,7 +406,6 @@ const handleNextActionClick = () => {
               <span class="node-tooltip">{{ node.text.substring(0, 20) }}...</span>
             </div>
             
-            <!-- 階層レベルの表示 -->
             <div class="tree-levels">
               <div
                 v-for="level in (Math.max(...chainPosts.map(p => p.depth || 0), 0) + 1)"
@@ -443,14 +443,12 @@ const handleNextActionClick = () => {
 </template>
 
 <style scoped>
-/* 詳細ページ全体のスタイル */
+/* (前半のスタイルは変更なしのため省略) */
 .detail-page {
   background-color: #f0f2f5;
   min-height: 100vh;
   padding-bottom: 60px;
 }
-
-/* ヘッダースタイル */
 .app-header {
   display: flex;
   justify-content: space-between;
@@ -463,7 +461,6 @@ const handleNextActionClick = () => {
   top: 70px;
   z-index: 999;
 }
-
 .back-link {
   text-decoration: none;
   color: #333;
@@ -472,18 +469,14 @@ const handleNextActionClick = () => {
   display: flex;
   align-items: center;
 }
-
 .back-link:hover {
   color: #FF8C42;
 }
-
-/* 詳細コンテナ */
 .detail-container {
   padding: 15px;
   display: flex;
   flex-direction: column;
 }
-
 @media (min-width: 992px) {
   .detail-container {
     flex-direction: row;
@@ -491,11 +484,9 @@ const handleNextActionClick = () => {
     margin: 0 auto;
     gap: 20px;
   }
-    
   .detail-left {
     flex: 6;
   }
-    
   .detail-right {
     flex: 4;
     position: sticky;
@@ -503,8 +494,6 @@ const handleNextActionClick = () => {
     align-self: flex-start;
   }
 }
-
-/* 次のアクションボタン */
 .next-action-btn {
   background-color: #2196F3;
   color: white;
@@ -521,52 +510,41 @@ const handleNextActionClick = () => {
   transition: background-color 0.2s;
   width: 100%;
 }
-
 .next-action-btn:hover {
   background-color: #0b7dda;
 }
-
-/* スレッドコンテナ */
 .thread-container {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   overflow: hidden;
 }
-
 .thread-item {
   padding: 15px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
   transition: background-color 0.2s;
 }
-
 .thread-item:last-child {
   border-bottom: none;
 }
-
 .thread-item:hover {
   background-color: #f9f9f9;
 }
-
 .thread-item.thanks-post {
   border-left: 4px solid #FF8C42;
 }
-
 .thread-item.next-action {
   border-left: 4px solid;
   margin-left: 20px;
 }
-
 .thread-item.highlight {
   background-color: #f0f8ff;
 }
-
 .thread-content {
   display: flex;
   align-items: flex-start;
 }
-
 .avatar {
   width: 40px;
   height: 40px;
@@ -581,33 +559,27 @@ const handleNextActionClick = () => {
   font-weight: bold;
   flex-shrink: 0;
 }
-
 .thread-text {
   margin-left: 10px;
   flex-grow: 1;
 }
-
 .thread-header {
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
 }
-
 .thread-name {
   font-weight: bold;
   color: #333;
 }
-
 .thread-time {
   color: #888;
   font-size: 0.8em;
 }
-
 .thread-body {
   color: #333;
   line-height: 1.5;
 }
-
 .thread-feeling {
   font-style: italic;
   color: #555;
@@ -616,14 +588,12 @@ const handleNextActionClick = () => {
   padding-left: 10px;
   font-size: 0.95rem;
 }
-
 .thread-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   margin-top: 10px;
 }
-
 .tag {
   background-color: #e0f7fa;
   color: #00838f;
@@ -632,11 +602,13 @@ const handleNextActionClick = () => {
   font-size: 0.8em;
 }
 
-/* いいねボタンのスタイルを追加 */
+/* --- ▼▼▼ ここから下が修正箇所です ▼▼▼ --- */
+
 .thread-actions {
   display: flex;
   align-items: center;
   margin-top: 12px;
+  /* justify-content: space-between; は削除 */
 }
 
 .like-button {
@@ -669,7 +641,26 @@ const handleNextActionClick = () => {
   border-radius: 8px;
 }
 
-/* タイプバッジ */
+/* 続けるボタンのスタイルを修正 */
+.reply-button {
+  background-color: #4CAF50; /* 色を緑に変更 */
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 16px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-left: auto; /* ボタンを右端に配置 */
+}
+
+.reply-button:hover {
+  background-color: #45a049; /* ホバー時の色を濃い緑に変更 */
+}
+
+/* --- ▲▲▲ ここまでが修正箇所です ▲▲▲ --- */
+
 .post-type-badge {
   border-radius: 16px;
   padding: 3px 10px;
@@ -681,18 +672,13 @@ const handleNextActionClick = () => {
   margin-left: 10px;
   flex-shrink: 0;
 }
-
 .thanks-badge {
   background-color: #FF8C42;
 }
-
 .badge-icon {
   margin-right: 4px;
   font-size: 1em;
 }
-
-/* === ▼▼▼ ここから家系図の新しいスタイル ▼▼▼ === */
-
 .family-tree {
   background: #fff;
   border-radius: 12px;
@@ -701,27 +687,23 @@ const handleNextActionClick = () => {
   margin-bottom: 20px;
   overflow-x: auto;
 }
-
 .tree-title {
   text-align: center;
   margin-bottom: 20px;
   font-weight: bold;
   color: #333;
 }
-
 .tree-subtitle {
   font-size: 0.8rem;
   font-weight: normal;
   color: #666;
 }
-
 .tree-container {
   position: relative;
   min-height: 400px;
   width: 100%;
   transition: all 0.3s ease-in-out;
 }
-
 .tree-svg-connectors {
   position: absolute;
   top: 0;
@@ -731,13 +713,11 @@ const handleNextActionClick = () => {
   z-index: 1;
   overflow: visible;
 }
-
 .tree-connector-line {
   stroke: #ccc;
   stroke-width: 2px;
   transition: all 0.3s ease-in-out;
 }
-
 .tree-node {
   position: absolute;
   width: 50px;
@@ -754,10 +734,6 @@ const handleNextActionClick = () => {
   transition: all 0.2s ease;
   transform: translateX(-50%);
 }
-
-/* ★★★ ここから今回の修正スタイルです ★★★ */
-
-/* 親子ラインが選択されているとき、関係ない要素を少し透明にする */
 .tree-container.has-selection .tree-node:not(.is-family) {
   opacity: 0.3;
   transform: translateX(-50%) scale(0.95);
@@ -765,40 +741,26 @@ const handleNextActionClick = () => {
 .tree-container.has-selection .tree-connector-line:not(.is-family-connector) {
   opacity: 0.15;
 }
-
-/* 選択された親子ラインのコネクターをハイライト */
 .tree-connector-line.is-family-connector {
   stroke: #FF8C42;
   stroke-width: 3px;
-  /* ★★★ 修正点: ハイライト用の矢印(marker)に切り替える ★★★ */
   marker-end: url(#arrowhead-highlight);
 }
-
-/* 矢印の色もコネクターに合わせる */
 .tree-connector-line.is-family-connector {
     marker-end: url(#arrowhead-highlight);
 }
-
-
-
-/* ★★★ 修正スタイルはここまで ★★★ */
-
-
 .tree-node:hover {
   transform: translateX(-50%) scale(1.1);
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-
 .tree-node.active {
   box-shadow: 0 0 0 3px #fff, 0 0 0 6px #4CAF50;
 }
-
 .tree-node.root {
   width: 60px;
   height: 60px;
   font-weight: bold;
 }
-
 .node-tooltip {
   position: absolute;
   bottom: calc(100% + 5px);
@@ -815,12 +777,10 @@ const handleNextActionClick = () => {
   transition: opacity 0.2s, visibility 0.2s;
   pointer-events: none;
 }
-
 .tree-node:hover .node-tooltip {
   opacity: 1;
   visibility: visible;
 }
-
 .tree-levels {
   position: absolute;
   top: 0;
@@ -830,7 +790,6 @@ const handleNextActionClick = () => {
   z-index: 0;
   pointer-events: none;
 }
-
 .level-marker {
   position: absolute;
   font-size: 0.8rem;
@@ -839,8 +798,6 @@ const handleNextActionClick = () => {
   padding: 2px 5px;
   border-radius: 4px;
 }
-
-/* 連鎖の統計情報 */
 .chain-stats {
   background: #fff;
   border-radius: 12px;
@@ -849,24 +806,19 @@ const handleNextActionClick = () => {
   display: flex;
   justify-content: space-around;
 }
-
 .stat-item {
   text-align: center;
 }
-
 .stat-label {
   font-size: 0.8rem;
   color: #666;
   margin-bottom: 5px;
 }
-
 .stat-value {
   font-size: 1.5rem;
   font-weight: bold;
   color: #333;
 }
-
-/* ローディングとエラー表示 */
 .loading-container,
 .empty-container {
   text-align: center;
@@ -877,7 +829,6 @@ const handleNextActionClick = () => {
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-
 .back-btn {
   background-color: #FF8C42;
   color: white;
@@ -889,4 +840,3 @@ const handleNextActionClick = () => {
   font-weight: bold;
 }
 </style>
-

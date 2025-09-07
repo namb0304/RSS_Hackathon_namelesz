@@ -1,9 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import { searchPosts } from '../firebase' // firebase.js に後で追加する新関数
+import { searchPosts } from '../firebase'
 import ThanksCard from '../components/ThanksCard.vue'
-
-// リアクティブな状態変数
+import ActionCard from '../components/ActionCard.vue' // // リアクティブな状態変数
 const searchQuery = ref('')      // 検索フォームの入力値
 const searchType = ref('tag')    // 'tag' or 'content' の検索タイプ
 const results = ref([])          // 検索結果を格納する配列
@@ -25,7 +24,12 @@ const performSearch = async () => {
 
   try {
     const searchResultPosts = await searchPosts(searchQuery.value, searchType.value)
-    results.value = searchResultPosts
+    // Thanks投稿を優先的に表示するためソートする（任意）
+    results.value = searchResultPosts.sort((a, b) => {
+      if (a.type === 'thanks' && b.type !== 'thanks') return -1;
+      if (a.type !== 'thanks' && b.type === 'thanks') return 1;
+      return 0;
+    });
   } catch (error) {
     console.error('検索に失敗しました:', error)
   } finally {
@@ -68,13 +72,12 @@ const performSearch = async () => {
       
       <div v-else-if="hasSearched && results.length > 0" class="posts-list">
         <p class="search-info">「{{ searchQuery }}」の検索結果: {{ results.length }}件</p>
-        <ThanksCard 
-          v-for="post in results" 
-          :key="post.id" 
-          :post="post" 
-        />
+        
+        <template v-for="post in results" :key="post.id">
+          <ThanksCard v-if="post.type === 'thanks'" :post="post" />
+          <ActionCard v-else-if="post.type === 'action'" :post="post" />
+        </template>
       </div>
-
       <div v-else-if="hasSearched && results.length === 0" class="message">
         <p>「{{ searchQuery }}」に一致する投稿は見つかりませんでした。</p>
       </div>

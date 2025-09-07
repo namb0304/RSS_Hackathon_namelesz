@@ -12,7 +12,6 @@ const props = defineProps({
   }
 })
 
-// ... (他のscript部分は変更なし) ...
 const router = useRouter()
 const authorName = ref('匿名ユーザー')
 const authorAvatar = ref(null)
@@ -62,7 +61,6 @@ onMounted(async () => {
     isLoadingActions.value = false
   }
 })
-// ... (残りのscriptとtemplate, styleは変更なし) ...
 const formatTimestamp = (timestamp) => {
   if (!timestamp || !timestamp.toDate) return '---';
   const date = timestamp.toDate();
@@ -113,8 +111,7 @@ const handleLike = async () => {
 </script>
 
 <template>
-  <div class="card">
-    <div class="card-clickable-area" @click="goToDetail">
+  <div class="card thanks-card"> <div class="card-clickable-area" @click="goToDetail">
       <div class="card-header">
         <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
           <template v-if="!authorAvatar">{{ avatarInitial }}</template>
@@ -186,6 +183,13 @@ const handleLike = async () => {
 /* スタイル部分は変更なし */
 .card { background-color: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s ease, box-shadow 0.2s ease; margin-bottom: 16px; display: flex; flex-direction: column; }
 .card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+
+/* ▼▼▼ ここから修正箇所です ▼▼▼ */
+.thanks-card {
+  border-left: 4px solid #FF8C42; /* Thanksカードの左端にオレンジのボーダーを追加 */
+}
+/* ▲▲▲ ここまで修正箇所です ▲▲▲ */
+
 .card-clickable-area { padding: 16px; cursor: pointer; flex-grow: 1; }
 .card-header { display: flex; align-items: center; margin-bottom: 12px; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #f0f0f0; margin-right: 12px; display: flex; justify-content: center; align-items: center; color: #555; font-weight: bold; background-size: cover; background-position: center; }
