@@ -17,11 +17,7 @@ onMounted(async () => {
   try {
     const posts = await getPostChain(postId)
     if (posts && posts.length > 0) {
-      // getPostChainから返されるデータに `replyTo` が含まれていることを想定しています。
-      // もし含まれていない場合、この家系図は正しく機能しません。
       chainPosts.value = posts
-
-      // 全投稿の著者情報を読み込む
       await loadAuthorProfiles(posts)
     }
   } catch (error) {
@@ -61,12 +57,17 @@ const getColorByDepth = (depth) => {
 
 /**
  * 家系図のレイアウト（ノードの位置と親子を結ぶ線）を計算します。
- * @returns {{nodes: Array, connectors: Array, containerHeight: Number}}
  */
 const treeLayout = computed(() => {
+  // --- DEBUG 1 ---
+  console.log('--- 🌳 家系図の計算を開始します ---');
+  
   const nodes = [];
   const connectors = [];
-  if (chainPosts.value.length === 0) return { nodes, connectors, containerHeight: 400 };
+  if (chainPosts.value.length === 0) {
+    console.log('投稿データが空のため、計算を中断します。');
+    return { nodes, connectors, containerHeight: 400 };
+  }
 
   const postsByDepth = chainPosts.value.reduce((acc, post) => {
     const depth = post.depth || 0;
@@ -101,11 +102,23 @@ const treeLayout = computed(() => {
     nodePositions.set(post.id, { top, left });
   });
 
+  // --- DEBUG 2 ---
+  console.log('✅ ノードが生成されました:', JSON.parse(JSON.stringify(nodes)));
+  console.log('🗺️ ノードの座標が保存されました:', nodePositions);
+
   nodes.forEach(node => {
     if (node.replyTo) {
       const parentPos = nodePositions.get(node.replyTo);
       const childPos = nodePositions.get(node.id);
+      
+      // --- DEBUG 3 ---
+      if (!parentPos) {
+        console.warn(`❗️ 親ノードが見つかりません。投稿ID: ${node.id}, 親のID: ${node.replyTo}`);
+      }
+
       if (parentPos && childPos) {
+        // --- DEBUG 4 ---
+        console.log(`🔗 線を作成します: 親(${node.replyTo}) -> 子(${node.id})`, { parentPos, childPos });
         connectors.push({
           id: `${node.replyTo}-${node.id}`,
           x1: parentPos.left,
@@ -120,15 +133,14 @@ const treeLayout = computed(() => {
   const maxDepth = Math.max(...chainPosts.value.map(p => p.depth || 0), 0);
   const containerHeight = 120 + maxDepth * 100;
 
+  // --- DEBUG 5 ---
+  console.log('🏁 最終的に生成された線のデータ:', JSON.parse(JSON.stringify(connectors)));
+  console.log(`--- 🌳 家系図の計算が完了しました。線は ${connectors.length} 本です ---`);
+
   return { nodes, connectors, containerHeight };
 });
 
-// ★★★ ここからが今回の修正点です ★★★
-
-/**
- * ハイライトされている投稿の親子関係を計算します。
- * @returns {{parent: String|null, self: String|null, children: String[]}}
- */
+// ... highlightedFamilyIds 以下のスクリプトは変更ありません ...
 const highlightedFamilyIds = computed(() => {
   const family = { parent: null, self: null, children: [] };
   if (highlightedPostIndex.value < 0 || highlightedPostIndex.value >= chainPosts.value.length) {
@@ -147,24 +159,15 @@ const highlightedFamilyIds = computed(() => {
   return family;
 });
 
-// ★★★ 修正点はここまで ★★★
-
-// 投稿ノードをクリックしたときのハイライト処理
 const highlightThread = (index) => {
   highlightedPostIndex.value = index
 }
-
-// 元の投稿 (ルート) を計算
 const rootPost = computed(() => {
   return chainPosts.value.find(post => post.type === 'thanks') || null
 })
-
-// 表示対象のNextAction投稿をフィルター
 const actionPosts = computed(() => {
   return chainPosts.value.filter(post => post.type === 'action')
 })
-
-// 投稿の著者名を取得
 const getAuthorName = (post) => {
   if (!post || !post.authorId) return '読み込み中...';
   if (post.isAnonymous) return '匿名ユーザー'
@@ -172,28 +175,20 @@ const getAuthorName = (post) => {
   const profile = authorProfiles.value[post.authorId]
   return profile?.displayName || '名前未設定のユーザー'
 }
-
-// アバター表示用の頭文字を取得
 const getAvatarInitial = (post) => {
   if (!post) return '';
   const name = getAuthorName(post)
   return name.charAt(0).toUpperCase()
 }
-
-// タイムスタンプのフォーマット
 const formatTimestamp = (timestamp) => {
   if (!timestamp || !timestamp.toDate) return '---';
   const date = timestamp.toDate();
   const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
   return new Intl.DateTimeFormat('ja-JP', options).format(date);
 };
-
-// 戻るボタンのハンドラー
 const handleBack = () => {
   router.push('/');
 }
-
-// NextActionボタンのハンドラー
 const handleNextActionClick = () => {
   if (chainPosts.value.length > 0) {
     const originalPost = chainPosts.value[highlightedPostIndex.value]
@@ -201,7 +196,6 @@ const handleNextActionClick = () => {
     isPostFormModalOpen.value = true
   }
 }
-
 </script>
 
 <template>
@@ -295,20 +289,33 @@ const handleNextActionClick = () => {
           >
             <!-- 親子を結ぶ線をSVGで描画 -->
             <svg class="tree-svg-connectors">
-              <defs>
+            <defs>
                 <marker
-                  id="arrowhead"
-                  viewBox="0 0 10 10"
-                  refX="9"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  orient="auto-start-reverse"
+                id="arrowhead"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
                 >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#ccc" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ccc" />
                 </marker>
-              </defs>
-              <line
+                
+                <marker
+                id="arrowhead-highlight"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+                >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#FF8C42" />
+                </marker>
+            </defs>
+
+            <line
                 v-for="line in treeLayout.connectors"
                 :key="line.id"
                 :x1="`${line.x1}%`"
@@ -317,12 +324,12 @@ const handleNextActionClick = () => {
                 :y2="line.y2 + 25"
                 class="tree-connector-line"
                 :class="{
-                  'is-family-connector':
+                'is-family-connector':
                     (line.id === `${highlightedFamilyIds.parent}-${highlightedFamilyIds.self}`) ||
                     (highlightedFamilyIds.children.some(childId => line.id === `${highlightedFamilyIds.self}-${childId}`))
                 }"
                 marker-end="url(#arrowhead)"
-              />
+            />
             </svg>
             
             <!-- 各投稿をノードとして表示 -->
@@ -672,14 +679,15 @@ const handleNextActionClick = () => {
 .tree-connector-line.is-family-connector {
   stroke: #FF8C42;
   stroke-width: 3px;
+  /* ★★★ 修正点: ハイライト用の矢印(marker)に切り替える ★★★ */
+  marker-end: url(#arrowhead-highlight);
 }
+
 /* 矢印の色もコネクターに合わせる */
 .tree-connector-line.is-family-connector {
     marker-end: url(#arrowhead-highlight);
 }
-.tree-svg-connectors defs #arrowhead-highlight path {
-    fill: #FF8C42;
-}
+
 
 
 /* ★★★ 修正スタイルはここまで ★★★ */

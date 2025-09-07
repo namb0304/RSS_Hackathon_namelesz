@@ -1,4 +1,5 @@
 <script setup>
+// ... <script>部分は変更ありません ...
 import { defineProps, ref, onMounted, computed } from 'vue'
 import { getUserProfile, getChain, likePost } from '../firebase'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
@@ -140,10 +141,14 @@ const handleLike = async () => {
       </div>
       
       <div class="card-body">
-        <p>{{ props.post.text }}</p>
-        <div v-if="props.post.feeling" class="feeling-quote">
-          "{{ props.post.feeling }}"
+        <div class="quote-box quote-box--thanks">
+          <p>{{ props.post.text }}</p>
         </div>
+        
+        <div v-if="props.post.feeling" class="feeling-quote">
+          {{ props.post.feeling }}
+        </div>
+
         <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
           <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
         </div>
@@ -161,7 +166,7 @@ const handleLike = async () => {
         </div>
         
         <div v-else-if="actionPreviews.length > 0" class="action-previews">
-          <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
+          <div v-for="action in actionPreviews" :key="action.id" class="quote-box quote-box--action">
             {{ action.text }}
           </div>
           
@@ -182,11 +187,9 @@ const handleLike = async () => {
     </div>
     
     <div class="card-footer">
-      <div class="metrics">
-        <!-- ★★★ いいねボタンの表示を更新 ★★★ -->
+        <div class="metrics">
         <button @click="handleLike" class="like-button" :title="`10回までいいねできます`">
           <span>❤️ {{ props.post.likeCount || 0 }}</span>
-          <!-- ★ 自分がいいねした場合にだけカウンターを表示 -->
           <span v-if="myLikeCount > 0" class="my-like-count-indicator">
             ({{ myLikeCount }}/10)
           </span>
@@ -198,251 +201,55 @@ const handleLike = async () => {
 </template>
 
 <style scoped>
-.card {
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-}
-
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-}
-
-.card-clickable-area {
-  padding: 16px;
-  cursor: pointer;
-  flex-grow: 1;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #f0f0f0;
-  margin-right: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #555;
-  font-weight: bold;
-  background-size: cover;
-  background-position: center;
-}
-
-.user-info {
-  flex-grow: 1;
-}
-
-.name {
-  font-weight: bold;
-  color: #333;
-  font-size: 1rem;
-}
-
-.id {
-  color: #666;
-  font-size: 0.8rem;
-}
-
-.post-type {
-  background-color: #FF8C42;
-  color: white;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: bold;
-}
-
-.card-body {
-  margin-bottom: 16px;
-}
-
-.card-body p {
-  color: #333;
-  line-height: 1.5;
-  margin-top: 0;
-  margin-bottom: 12px;
-}
-
-.feeling-quote {
-  font-style: italic;
-  color: #555;
-  margin: 12px 0;
-  border-left: 3px solid #FF8C42;
-  padding-left: 12px;
-}
-
-.tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tag {
-  background-color: #f0f2f5;
-  color: #666;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-}
-
-.branch-preview {
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 12px;
-}
-
-.preview-title {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  font-weight: 500;
-  color: #444;
-}
-
-.preview-icon {
-  margin-right: 6px;
-}
-
-.preview-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #FF8C42;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: 8px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.action-previews {
-  margin-bottom: 8px;
-}
-
-.action-preview-item {
+.quote-box {
   background-color: white;
   padding: 10px 12px;
   border-radius: 8px;
-  margin-bottom: 8px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   line-height: 1.4;
-  border-left: 3px solid #2196F3;
-  font-size: 0.95rem;
   color: #333;
+  border-left: 3px solid;
 }
+.quote-box p { margin: 0; font-size: 0.95rem; }
+.quote-box--thanks { border-color: #FF8C42; }
+.quote-box--action { border-color: #2196F3; font-size: 0.95rem; margin-bottom: 8px; }
 
-.more-actions-link {
-  display: block;
-  text-align: center;
-  color: #2196F3;
-  font-size: 0.85rem;
-  padding: 6px;
-  text-decoration: none;
-}
-
-.more-actions-link:hover {
-  text-decoration: underline;
-}
-
-.no-actions {
-  text-align: center;
-  padding: 10px;
-  color: #666;
+/* ★★★ 変更点: feelingのスタイルを見やすく調整 ★★★ */
+.feeling-quote {
   font-style: italic;
-  font-size: 0.9rem;
+  color: #7B4A1D; /* 背景色に合わせて少し濃い茶色に */
+  margin: 12px 0;
+  background-color: #FFF3E8; /* 薄いオレンジの背景色 */
+  padding: 8px 12px;
+  border-radius: 8px; /* 角を丸める */
 }
 
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: #f9fafb;
-  border-top: 1px solid #f0f0f0;
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-}
-
-.metrics {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.like-button, .action-count {
-  color: #666;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-}
-
-.like-button {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.like-button:hover {
-  color: #e74c3c;
-}
-
-/* ★★★ いいねカウンター用の新しいスタイル ★★★ */
-.my-like-count-indicator {
-  font-size: 0.75rem;
-  color: #9ca3af; /* 少し薄めのグレー */
-  margin-left: 6px; /* いいね総数との間に少し余白 */
-  font-weight: normal;
-  background-color: #f3f4f6; /* 背景色を付けて少し際立たせる */
-  padding: 2px 6px;
-  border-radius: 8px;
-}
-
-
-.reply-button {
-  background-color: #FF8C42;
-  color: white;
-  border: none;
-  border-radius: 16px;
-  padding: 6px 16px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.reply-button:hover {
-  background-color: #EE965F;
-}
+.card { background-color: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s ease, box-shadow 0.2s ease; margin-bottom: 16px; display: flex; flex-direction: column; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.card-clickable-area { padding: 16px; cursor: pointer; flex-grow: 1; }
+.card-header { display: flex; align-items: center; margin-bottom: 12px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #f0f0f0; margin-right: 12px; display: flex; justify-content: center; align-items: center; color: #555; font-weight: bold; background-size: cover; background-position: center; }
+.user-info { flex-grow: 1; }
+.name { font-weight: bold; color: #333; font-size: 1rem; }
+.id { color: #666; font-size: 0.8rem; }
+.post-type { background-color: #FF8C42; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+.card-body { margin-bottom: 12px; }
+.tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tag { background-color: #f0f2f5; color: #666; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; }
+.branch-preview { background-color: #f9f9f9; border-radius: 8px; padding: 12px; }
+.preview-title { display: flex; align-items: center; margin-bottom: 12px; font-weight: 500; color: #444; }
+.preview-icon { margin-right: 6px; }
+.preview-loading { display: flex; align-items: center; justify-content: center; padding: 10px 0; color: #666; font-size: 0.9rem; }
+.loading-spinner { width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #FF8C42; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.more-actions-link { display: block; text-align: center; color: #2196F3; font-size: 0.85rem; padding: 6px; text-decoration: none; }
+.more-actions-link:hover { text-decoration: underline; }
+.no-actions { text-align: center; padding: 10px; color: #666; font-style: italic; font-size: 0.9rem; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: #f9fafb; border-top: 1px solid #f0f0f0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+.metrics { display: flex; gap: 16px; align-items: center; }
+.like-button { background: none; border: none; padding: 0; margin: 0; font-family: inherit; cursor: pointer; display: flex; align-items: center; color: #666; font-size: 0.9rem; }
+.like-button:hover { color: #e74c3c; }
+.my-like-count-indicator { font-size: 0.75rem; color: #9ca3af; margin-left: 6px; font-weight: normal; background-color: #f3f4f6; padding: 2px 6px; border-radius: 8px; }
+.reply-button { background-color: #FF8C42; color: white; border: none; border-radius: 16px; padding: 6px 16px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+.reply-button:hover { background-color: #EE965F; }
 </style>
-
