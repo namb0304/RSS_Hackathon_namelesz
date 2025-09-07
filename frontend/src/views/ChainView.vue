@@ -1,8 +1,9 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPostChain, getUserProfile } from '../firebase'
+import { getPostChain, getUserProfile, likePost } from '../firebase'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
+import { user } from '../store/user'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,6 +48,42 @@ const loadAuthorProfiles = async (posts) => {
       console.error(`著者情報の取得に失敗: ${authorId}`, error)
     }
   }
+}
+
+// いいね機能の追加
+const handleLike = async (post, event) => {
+  event.stopPropagation();
+  if (!user.value) { 
+    alert("いいねするにはログインが必要です。"); 
+    return; 
+  }
+  
+  const myLikeCount = getMyLikeCount(post);
+  if (myLikeCount >= 10) { 
+    alert("いいねは一投稿につき10回までです！"); 
+    return; 
+  }
+  
+  try {
+    if (post.likeCount === undefined) post.likeCount = 0;
+    post.likeCount++;
+    if (!post.likesMap) post.likesMap = {};
+    if (!post.likesMap[user.value.uid]) post.likesMap[user.value.uid] = 0;
+    post.likesMap[user.value.uid]++;
+    await likePost(post.id, user.value.uid);
+  } catch (error) {
+    console.error("いいね処理中にエラー:", error)
+    post.likeCount--;
+    post.likesMap[user.value.uid]--;
+    alert("いいねに失敗しました。");
+  }
+}
+
+
+
+const getMyLikeCount = (post) => {
+  if (!user.value || !post.likesMap) return 0;
+  return post.likesMap[user.value.uid] || 0;
 }
 
 // 階層ごとの色を取得する関数 (変更なし)
@@ -210,9 +247,6 @@ const handleNextActionClick = () => {
       
     <div v-else-if="chainPosts.length > 0" class="detail-container">
       <div class="detail-left">
-        <button class="next-action-btn" @click="handleNextActionClick">
-        この体験に触発されてあなたがしたアクションを投稿する
-        </button>
           
         <div class="thread-container">
           <div 
@@ -239,9 +273,19 @@ const handleNextActionClick = () => {
                     <span v-for="tag in rootPost.tags" :key="tag" class="tag">#{{ tag }}</span>
                   </div>
                 </div>
+                
+                <!-- いいねボタンを追加 -->
+                <div class="thread-actions">
+                  <button @click="handleLike(rootPost, $event)" class="like-button" :title="`10回までいいねできます`">
+                    <span>❤️ {{ rootPost.likeCount || 0 }}</span>
+                    <span v-if="getMyLikeCount(rootPost) > 0" class="my-like-count-indicator">
+                      ({{ getMyLikeCount(rootPost) }}/10)
+                    </span>
+                  </button>
+                </div>
               </div>
               <div class="post-type-badge thanks-badge">
-                <span class="badge-icon">🙏</span>感謝
+                <span class="badge-icon">🙏</span>Thanks
               </div>
             </div>
           </div>
@@ -270,6 +314,16 @@ const handleNextActionClick = () => {
                   <div v-if="post.tags && post.tags.length > 0" class="thread-tags">
                     <span v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</span>
                   </div>
+                </div>
+                
+                <!-- いいねボタンを追加 -->
+                <div class="thread-actions">
+                  <button @click="handleLike(post, $event)" class="like-button" :title="`10回までいいねできます`">
+                    <span>❤️ {{ post.likeCount || 0 }}</span>
+                    <span v-if="getMyLikeCount(post) > 0" class="my-like-count-indicator">
+                      ({{ getMyLikeCount(post) }}/10)
+                    </span>
+                  </button>
                 </div>
               </div>
               <div class="post-type-badge next-badge" :style="{ backgroundColor: getColorByDepth(post.depth) }"> <span class="badge-icon">🔄</span>NextAction
@@ -576,6 +630,43 @@ const handleNextActionClick = () => {
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 0.8em;
+}
+
+/* いいねボタンのスタイルを追加 */
+.thread-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.like-button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  margin: 0;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #666;
+  font-size: 0.9rem;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.like-button:hover {
+  color: #e74c3c;
+  background-color: #f9f9f9;
+}
+
+.my-like-count-indicator {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-left: 6px;
+  font-weight: normal;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 8px;
 }
 
 /* タイプバッジ */

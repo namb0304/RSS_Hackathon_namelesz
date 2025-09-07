@@ -1,7 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getThanksPosts, subscribeToAllPosts } from '../firebase'
+import { subscribeToAllPosts } from '../firebase'
 import ThanksCard from '../components/ThanksCard.vue'
+// ★★★ 変更点: 新しいActionCardをインポート ★★★
+import ActionCard from '../components/ActionCard.vue' 
 import { isPostFormModalOpen } from '../store/modal'
 
 const posts = ref([])
@@ -9,27 +11,11 @@ const isLoading = ref(true)
 let unsubscribe = null
 
 onMounted(() => {
-  // subscribeToAllPosts の代わりに、Thanksタイプの投稿だけをフィルタリングする
+  // ★★★ 変更点: .filterを削除し、全ての投稿(ThanksとAction)を受け取る ★★★
   unsubscribe = subscribeToAllPosts((allPosts) => {
-    // Thanksタイプの投稿だけをフィルタリング
-    posts.value = allPosts.filter(post => post.type === 'thanks')
+    posts.value = allPosts
     isLoading.value = false
   })
-
-  // または、直接Thanksのみを取得する関数を使用することもできます
-  // この場合はリアルタイム更新ではなくなります
-  /*
-  const loadPosts = async () => {
-    try {
-      posts.value = await getThanksPosts()
-    } catch (error) {
-      console.error("投稿の取得に失敗しました:", error)
-    } finally {
-      isLoading.value = false
-    }
-  }
-  loadPosts()
-  */
 })
 
 onUnmounted(() => {
@@ -52,11 +38,10 @@ const handleNewPostClick = () => {
       </div>
 
       <div v-else-if="posts.length > 0" class="posts-list">
-        <ThanksCard 
-          v-for="post in posts" 
-          :key="post.id" 
-          :post="post" 
-        />
+        <div v-for="post in posts" :key="post.id">
+          <ThanksCard v-if="post.type === 'thanks'" :post="post" />
+          <ActionCard v-else-if="post.type === 'action'" :post="post" />
+        </div>
       </div>
 
       <div v-else class="empty-message">
@@ -68,38 +53,26 @@ const handleNewPostClick = () => {
 </template>
 
 <style scoped>
-/* ベーススタイル */
+/* スタイル部分は変更ありません */
 .page-container {
-  background-color: #FEFAF6; /* App.vueの背景色と合わせます */
+  background-color: #FEFAF6;
   min-height: 100vh;
   padding-bottom: 80px;
 }
-
-/* タイムラインコンテナ */
 .timeline-container {
   padding: 10px;
-  /* ★ 変更：PC表示時に2列表示に対応するため、横幅を広げます */
   max-width: 1200px; 
   margin: 0 auto;
 }
-
-/* 投稿リスト */
 .posts-list {
-  /* ★ 変更：FlexboxからGridレイアウトに変更します */
   display: grid;
-  gap: 15px; /* カード間の隙間 */
+  gap: 15px;
 }
-
-/* ★★★ ここからが新しいスタイルです ★★★ */
-/* 画面幅が768px以上のとき（タブレットやPC）に適用されます */
 @media (min-width: 768px) {
   .posts-list {
-    /* 2つのカラムを作成します。frは利用可能なスペースの割合を示します */
     grid-template-columns: 1fr 1fr;
   }
 }
-
-/* メッセージスタイル */
 .loading-message,
 .empty-message {
   text-align: center;
@@ -110,8 +83,6 @@ const handleNewPostClick = () => {
   padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  /* ★ 追加：2列表示でも中央に配置されるように調整 */
   grid-column: 1 / -1;
 }
-
 </style>

@@ -12,7 +12,6 @@ const props = defineProps({
   }
 })
 
-// ... (他のscript部分は変更なし) ...
 const router = useRouter()
 const authorName = ref('匿名ユーザー')
 const authorAvatar = ref(null)
@@ -32,23 +31,10 @@ onMounted(async () => {
       console.error("ユーザープロフィールの取得に失敗:", error)
     }
   }
-  
+
   if (props.post.actionCount > 0) {
     try {
-      // ★★★ DEBUG 1 ★★★
-      console.log(
-        `🔍 [ThanksCard Debug] Fetching children for post ID: ${props.post.id}. Expected count: ${props.post.actionCount}`,
-        { post: JSON.parse(JSON.stringify(props.post)) }
-      );
-
       const actions = await getChain(props.post.id);
-
-      // ★★★ DEBUG 2 ★★★
-      console.log(
-        `📦 [ThanksCard Debug] Received ${actions ? actions.length : 0} children from getChain:`,
-        JSON.parse(JSON.stringify(actions))
-      );
-
       if (actions) {
         allChildActions.value = actions
         actionPreviews.value = actions.slice(0, 2)
@@ -62,7 +48,7 @@ onMounted(async () => {
     isLoadingActions.value = false
   }
 })
-// ... (残りのscriptとtemplate, styleは変更なし) ...
+
 const formatTimestamp = (timestamp) => {
   if (!timestamp || !timestamp.toDate) return '---';
   const date = timestamp.toDate();
@@ -78,22 +64,33 @@ const formatTimestamp = (timestamp) => {
   const options = { year: 'numeric', month: 'long', day: 'numeric' };
   return new Intl.DateTimeFormat('ja-JP', options).format(date);
 };
+
 const avatarInitial = computed(() => authorName.value.charAt(0).toUpperCase());
-const goToDetail = () => router.push({ name: 'chain', params: { id: props.post.id } })
-const handleReplyClick = () => {
+const rootId = computed(() => props.post.rootPostId || props.post.id);
+
+const goToDetail = () => {
+  router.push({ name: 'chain', params: { id: rootId.value } })
+}
+
+const handleReplyClick = (event) => {
+  event.stopPropagation();
   replyToPost.value = props.post;
   isPostFormModalOpen.value = true;
 };
+
 const remainingActions = computed(() => {
   const total = allChildActions.value.length;
   const shown = actionPreviews.value.length;
   return total > shown ? total - shown : 0;
 });
+
 const myLikeCount = computed(() => {
   if (!user.value || !props.post.likesMap) return 0;
   return props.post.likesMap[user.value.uid] || 0;
 });
-const handleLike = async () => {
+
+const handleLike = async (event) => {
+  event.stopPropagation();
   if (!user.value) { alert("いいねするにはログインが必要です。"); return; }
   if (myLikeCount.value >= 10) { alert("いいねは一投稿につき10回までです！"); return; }
   try {
@@ -113,7 +110,7 @@ const handleLike = async () => {
 </script>
 
 <template>
-  <div class="card">
+  <div class="card action-card">
     <div class="card-clickable-area" @click="goToDetail">
       <div class="card-header">
         <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
@@ -123,7 +120,7 @@ const handleLike = async () => {
           <div class="name">{{ authorName }}</div>
           <div class="id">@{{ authorName.toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
         </div>
-        <span class="post-type">Thanks</span>
+        <span class="post-type action-badge">Next Action</span>
       </div>
       
       <div class="card-body">
@@ -154,7 +151,7 @@ const handleLike = async () => {
           
           <RouterLink 
             v-if="remainingActions > 0"
-            :to="{ name: 'chain', params: { id: props.post.id } }" 
+            :to="{ name: 'chain', params: { id: rootId } }" 
             class="more-actions-link"
             @click.stop
           >
@@ -177,13 +174,12 @@ const handleLike = async () => {
           </span>
         </button>
       </div>
-      <button @click="handleReplyClick" class="reply-button">続ける</button>
+      <button @click="handleReplyClick" class="reply-button">この投稿に続ける</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* スタイル部分は変更なし */
 .card { background-color: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s ease, box-shadow 0.2s ease; margin-bottom: 16px; display: flex; flex-direction: column; }
 .card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
 .card-clickable-area { padding: 16px; cursor: pointer; flex-grow: 1; }
@@ -192,27 +188,30 @@ const handleLike = async () => {
 .user-info { flex-grow: 1; }
 .name { font-weight: bold; color: #333; font-size: 1rem; }
 .id { color: #666; font-size: 0.8rem; }
-.post-type { background-color: #FF8C42; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+.post-type { color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
 .card-body { margin-bottom: 16px; }
 .card-body p { color: #333; line-height: 1.5; margin-top: 0; margin-bottom: 12px; }
-.feeling-quote { font-style: italic; color: #555; margin: 12px 0; border-left: 3px solid #FF8C42; padding-left: 12px; }
 .tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .tag { background-color: #f0f2f5; color: #666; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: #f9fafb; border-top: 1px solid #f0f0f0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+.metrics { display: flex; gap: 16px; align-items: center; }
+.like-button { background: none; border: none; padding: 0; margin: 0; font-family: inherit; cursor: pointer; display: flex; align-items: center; color: #666; font-size: 0.9rem; }
+.like-button:hover { color: #e74c3c; }
+.my-like-count-indicator { font-size: 0.75rem; color: #9ca3af; margin-left: 6px; font-weight: normal; background-color: #f3f4f6; padding: 2px 6px; border-radius: 8px; }
+.reply-button { background-color: #2196F3; color: white; border: none; border-radius: 16px; padding: 6px 16px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+.reply-button:hover { background-color: #4dabf5; }
+.action-card { border-left: 4px solid #2196F3; }
+.action-badge { background-color: #2196F3; }
+.feeling-quote { font-style: italic; color: #555; margin: 12px 0; border-left: 3px solid #2196F3; padding-left: 12px; }
 .branch-preview { background-color: #f9f9f9; border-radius: 8px; padding: 12px; margin-top: 12px; }
 .preview-title { display: flex; align-items: center; margin-bottom: 12px; font-weight: 500; color: #444; }
 .preview-icon { margin-right: 6px; }
 .preview-loading { display: flex; align-items: center; justify-content: center; padding: 10px 0; color: #666; font-size: 0.9rem; }
-.loading-spinner { width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #FF8C42; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
+.loading-spinner { width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #2196F3; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .action-previews { margin-bottom: 8px; }
-.action-preview-item { background-color: white; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); line-height: 1.4; border-left: 3px solid #2196F3; font-size: 0.95rem; color: #333; }
+.action-preview-item { background-color: white; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); line-height: 1.4; border-left: 3px solid #90A4AE; font-size: 0.95rem; color: #333; }
 .more-actions-link { display: block; text-align: center; color: #2196F3; font-size: 0.85rem; padding: 6px; text-decoration: none; }
 .more-actions-link:hover { text-decoration: underline; }
 .no-actions { text-align: center; padding: 10px; color: #666; font-style: italic; font-size: 0.9rem; }
-.card-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: #f9fafb; border-top: 1px solid #f0f0f0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
-.metrics { display: flex; gap: 16px; align-items: center; }
-.like-button { background: none; border: none; padding: 0; margin: 0; font-family: inherit; cursor: pointer; display: flex; align-items: center; }
-.my-like-count-indicator { font-size: 0.75rem; color: #9ca3af; margin-left: 6px; font-weight: normal; background-color: #f3f4f6; padding: 2px 6px; border-radius: 8px; }
-.reply-button { background-color: #FF8C42; color: white; border: none; border-radius: 16px; padding: 6px 16px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
-.reply-button:hover { background-color: #EE965F; }
 </style>
