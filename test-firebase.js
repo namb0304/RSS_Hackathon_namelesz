@@ -13,7 +13,7 @@ import {
   runTransaction 
 } from "firebase/firestore";
 
-// --- ここにあなたのfirebaseConfigを直接貼り付けてください ---
+// --- ここにあなたのfirebaseConfigを直接貼り付けてくださいい ---
 const firebaseConfig = {
   apiKey: "AIzaSyDRktpqTw26wef8mfEZim2-t3zYhU-WOSg",
   authDomain: "thanks-relay-hackathon.firebaseapp.com",
