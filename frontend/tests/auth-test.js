@@ -4,16 +4,7 @@ import {
   getFirestore, collection, doc, getDoc, setDoc, addDoc, deleteDoc, updateDoc, increment, serverTimestamp 
 } from "firebase/firestore";
 
-// --- ここにあなたのfirebaseConfigを直接貼り付けてください ---
-const firebaseConfig = {
-  apiKey: "AIzaSyDRktpqTw26wef8mfEZim2-t3zYhU-WOSg",
-  authDomain: "thanks-relay-hackathon.firebaseapp.com",
-  projectId: "thanks-relay-hackathon",
-  storageBucket: "thanks-relay-hackathon.firebasestorage.app",
-  messagingSenderId: "857905442350",
-  appId: "1:857905442350:web:c58e61c8c17fc8045239bf"
-};
-// ---------------------------------------------------------
+
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);

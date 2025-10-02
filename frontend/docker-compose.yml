@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  # サービス名は 'dev' とします
+  dev:
+    # Dockerfileを使ってビルドする設定
+    build:
+      context: .
+      # Dockerfile内の 'development' ステージを指定してビルド
+      target: development
+    # ポートのマッピング（PCの5173番ポートをコンテナの5173番ポートに繋ぐ）
+    ports:
+      - "5173:5173"
+    # ボリュームのマッピング（PCのソースコードをコンテナの/appディレクトリに同期）
+    volumes:
+      - .:/app
+      # ただし、node_modulesはコンテナ内のものを使用する（OS間の差異を吸収）
+      - /app/node_modules
+    # コンテナに名前をつける
+    container_name: thanks-relay-dev
