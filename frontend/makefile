@@ -37,7 +37,7 @@ build:
 
 # 本番用コンテナを起動して、ビルドされたアプリをサーブ
 serve:
-	docker run -d -p 8080:80 --name thanks-relay-prod-instance thanks-relay-prod
+	docker run -it -d -p 8080:80 --name thanks-relay-prod-instance thanks-relay-prod
 
 # 不要なコンテナやイメージをクリーンアップ
 clean:
