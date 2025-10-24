@@ -1,14 +1,14 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { 
-  getFirestore, 
-  collection, 
-  getDocs, 
-  addDoc, 
-  serverTimestamp, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
+  orderBy,
   doc,
   getDoc,
   setDoc,
@@ -150,7 +150,7 @@ export const likePost = async (postId, userId) => {
 
       if (currentUserLikeCount < 10) {
         const userLikesField = `likesMap.${userId}`;
-        
+
         // ★★★ ここからが変更点 ★★★
         const updateData = {
           [userLikesField]: increment(1), // ユーザー個人のカウントを+1
@@ -209,7 +209,7 @@ export const registerWithEmail = async (email, password) => {
  * usersコレクションにユーザー情報を作成・更新する
  */
 export const createUserProfile = async (user, additionalData = {}) => {
-  if (!user) return; 
+  if (!user) return;
 
   const userRef = doc(db, "users", user.uid);
   const userDoc = await getDoc(userRef);
@@ -263,13 +263,13 @@ export const getUserProfile = async (uid) => {
 export const getAllPosts = async () => {
   // whereによる絞り込みをせず、timestampで並び替えるだけ
   const q = query(postsCollection, orderBy("timestamp", "desc"));
-  
+
   const querySnapshot = await getDocs(q);
   const posts = [];
   querySnapshot.forEach((doc) => {
     posts.push({ id: doc.id, ...doc.data() });
   });
-  
+
   return posts;
 };
 
@@ -280,7 +280,7 @@ export const getAllPosts = async () => {
  */
 export const subscribeToAllPosts = (callback) => {
   const q = query(postsCollection, orderBy("timestamp", "desc"));
-  
+
   // onSnapshotでリスナーを設置
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
     const posts = [];
@@ -321,10 +321,10 @@ export const getPostChain = async (postId) => {
     console.error("起点となるThanks投稿の実体が見つかりません。");
     return null;
   }
-  
+
   // Thanks投稿を配列の最初に追加。replyToは無いのでnull
   const posts = [{ id: rootPostSnap.id, ...rootPostSnap.data(), replyTo: null }];
-  
+
   const q = query(postsCollection, where("rootPostId", "==", rootId));
   const querySnapshot = await getDocs(q);
 
@@ -332,9 +332,9 @@ export const getPostChain = async (postId) => {
   // Action投稿を配列に追加する際、parentPostIdをreplyToにマッピングします。
   querySnapshot.forEach((doc) => {
     const postData = doc.data();
-    posts.push({ 
-      id: doc.id, 
-      ...postData, 
+    posts.push({
+      id: doc.id,
+      ...postData,
       replyTo: postData.parentPostId || null // これが重要！
     });
   });
@@ -412,7 +412,7 @@ export const fetchRankingPosts = async (period) => {
 export const searchPosts = async (queryText, type) => {
   // 投稿を新しい順で並べておきます
   const baseQuery = query(postsCollection, orderBy("timestamp", "desc"));
-  
+
   // 1. タグ検索の場合
   if (type === 'tag') {
     // Firestoreの 'array-contains' を使って、tags配列に検索文字が含まれるものを探します
@@ -436,12 +436,12 @@ export const searchPosts = async (queryText, type) => {
     });
 
     // JavaScriptで、投稿のtextに検索文字が含まれるものをフィルタリング
-    const filteredPosts = allPosts.filter(post => 
+    const filteredPosts = allPosts.filter(post =>
       post.text && post.text.toLowerCase().includes(queryText.toLowerCase())
     );
     return filteredPosts;
   }
-  
+
   // 該当するタイプがなければ空の配列を返す
   return [];
 };
@@ -463,7 +463,7 @@ export const getMyPageStats = async (uid) => {
     where("authorId", "!=", uid)         // ★★★ 作者が自分ではないもの ★★★
   );
   const relaysReceivedSnap = await getDocs(relaysReceivedQuery);
-  
+
   return { relaysGiven: relaysGivenSnap.size, relaysReceived: relaysReceivedSnap.size };
 };
 /**
