@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { registerWithEmail, createUserProfile } from '../firebase'
+import { registerWithEmail, createUserProfile } from '../firebaseService'
 import { user } from '../store/user'
 
 const username = ref('')
@@ -17,7 +17,7 @@ const handleRegister = async () => {
 
   try {
     const userCredential = await registerWithEmail(email.value, password.value)
-    
+
     await createUserProfile(userCredential.user, {
       displayName: username.value
     })
@@ -32,7 +32,7 @@ const handleRegister = async () => {
 
   } catch (error) {
     console.error('登録エラー:', error.code)
-    
+
     switch (error.code) {
       case 'auth/invalid-email':
         alert('メールアドレスの形式が正しくありません。')
@@ -56,7 +56,7 @@ const handleRegister = async () => {
     <div class="auth-card">
       <h2 class="card-title">✨ 新規登録 ✨</h2>
       <form @submit.prevent="handleRegister">
-        
+
         <div class="form-group">
           <label for="username">ユーザー名</label>
           <input type="text" id="username" v-model="username" placeholder="Thanks 太郎" required />

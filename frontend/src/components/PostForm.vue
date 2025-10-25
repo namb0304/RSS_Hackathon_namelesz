@@ -1,6 +1,6 @@
 <script setup>
 import { ref, defineEmits } from 'vue'
-import { addThanksPost, addNextAction } from '../firebase'
+import { addThanksPost, addNextAction } from '../firebaseService'
 import { user } from '../store/user'
 import { replyToPost } from '../store/modal'
 
@@ -53,7 +53,7 @@ const handleSubmit = async () => {
       };
       await addThanksPost(postData);
     }
-    
+
     emit('post-success');
 
   } catch (error) {
@@ -66,7 +66,7 @@ const handleSubmit = async () => {
 <template>
   <form @submit.prevent="handleSubmit" class="post-form">
     <h3>{{ replyToPost ? 'この感謝に続ける' : '新しい感謝を投稿する' }}</h3>
-    
+
     <div class="form-group">
       <label for="text">感謝された出来事</label>
       <textarea id="text" v-model="text" rows="4" placeholder="誰かに感謝された出来事を書きましょう。"></textarea>
@@ -79,7 +79,8 @@ const handleSubmit = async () => {
 
     <div class="form-group">
       <label>タグ <span class="optional">任意</span></label>
-      <div v-for="(tag, index) in tags" :key="tag.id" class="tag-input-group">
+      <!-- <div v-for="(tag, index) in tags" :key="tag.id" class="tag-input-group"> -->
+      <div v-for="tag in tags" :key="tag.id" class="tag-input-group">
         <input type="text" v-model="tag.value" placeholder="例: 職場">
         <button type="button" @click="removeTagInput(tag.id)" v-if="tags.length > 1" class="remove-tag-btn">&times;</button>
       </div>

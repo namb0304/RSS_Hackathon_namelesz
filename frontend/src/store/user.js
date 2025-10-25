@@ -1,7 +1,8 @@
 import { ref } from 'vue'
 // firebase.jsから「ログイン状態を監視する機能(onAuth)」と
 // 「プロフィールを取得する機能(getUserProfile)」をインポートします
-import { onAuth, getUserProfile } from '../firebase'
+import { onAuth } from '../firebaseService'
+import { getUserProfile } from '../firebaseService'
 
 // アプリ全体で共有する「ユーザー情報」の掲示板
 export const user = ref(null)
@@ -14,11 +15,11 @@ onAuth(async (firebaseUser) => {
     const profile = await getUserProfile(firebaseUser.uid)
 
     // 2. 認証情報とプロフィール情報を合体させて、掲示板に書き込みます
-    user.value = { 
-      uid: firebaseUser.uid, 
+    user.value = {
+      uid: firebaseUser.uid,
       email: firebaseUser.email,
       // プロフィールがあればその名前を、なければ'ゲスト'という名前を使います
-      displayName: profile ? profile.displayName : 'ゲスト' 
+      displayName: profile ? profile.displayName : 'ゲスト'
     }
 
   } else {
