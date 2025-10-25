@@ -1,10 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { subscribeToAllPosts } from '../firebase'
+import { subscribeToAllPosts } from '../firebaseService'
 import ThanksCard from '../components/ThanksCard.vue'
 // ★★★ 変更点: 新しいActionCardをインポート ★★★
-import ActionCard from '../components/ActionCard.vue' 
-import { isPostFormModalOpen } from '../store/modal'
+import ActionCard from '../components/ActionCard.vue'
+// import { isPostFormModalOpen } from '../store/modal'
 
 const posts = ref([])
 const isLoading = ref(true)
@@ -24,10 +24,10 @@ onUnmounted(() => {
   }
 })
 
-// 投稿作成ボタンのクリックハンドラー
-const handleNewPostClick = () => {
-  isPostFormModalOpen.value = true
-}
+// // 投稿作成ボタンのクリックハンドラー
+// const handleNewPostClick = () => {
+//   isPostFormModalOpen.value = true
+// }
 </script>
 
 <template>
@@ -61,7 +61,7 @@ const handleNewPostClick = () => {
 }
 .timeline-container {
   padding: 10px;
-  max-width: 1200px; 
+  max-width: 1200px;
   margin: 0 auto;
 }
 .posts-list {

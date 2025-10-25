@@ -1,6 +1,6 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
-import { getUserProfile, getChain, likePost } from '../firebase'
+import { getUserProfile, getChain, likePost } from '../firebaseService'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
 import { user } from '../store/user'
 import { RouterLink, useRouter } from 'vue-router'
@@ -122,7 +122,7 @@ const handleLike = async (event) => {
         </div>
         <span class="post-type action-badge">Next Action</span>
       </div>
-      
+
       <div class="card-body">
         <p>{{ props.post.text }}</p>
         <div v-if="props.post.feeling" class="feeling-quote">
@@ -132,39 +132,39 @@ const handleLike = async (event) => {
           <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
         </div>
       </div>
-      
+
       <div class="branch-preview" v-if="allChildActions.length > 0">
         <div class="preview-title">
           <span class="preview-icon">🔄</span>
           <span>Next Action ({{ allChildActions.length }})</span>
         </div>
-        
+
         <div v-if="isLoadingActions" class="preview-loading">
           <div class="loading-spinner"></div>
           <span>Loading...</span>
         </div>
-        
+
         <div v-else-if="actionPreviews.length > 0" class="action-previews">
           <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
             {{ action.text }}
           </div>
-          
-          <RouterLink 
+
+          <RouterLink
             v-if="remainingActions > 0"
-            :to="{ name: 'chain', params: { id: rootId } }" 
+            :to="{ name: 'chain', params: { id: rootId } }"
             class="more-actions-link"
             @click.stop
           >
             他{{ remainingActions }}件のアクションを見る
           </RouterLink>
         </div>
-        
+
         <div v-else class="no-actions">
           <p>アクションの読み込みに失敗しました</p>
         </div>
       </div>
     </div>
-    
+
     <div class="card-footer">
       <div class="metrics">
         <button @click="handleLike" class="like-button" :title="`10回までいいねできます`">

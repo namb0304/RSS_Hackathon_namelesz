@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink, useRouter } from 'vue-router'
-import { logout } from '../firebase' // ログアウト関数をインポート
+import { logout } from '../firebaseService' // ログアウト関数をインポート
 import { user } from '../store/user' // ユーザー情報をインポート
 
 const router = useRouter()
@@ -20,7 +20,7 @@ const handleLogout = async () => {
     <div class="logo">
       <RouterLink :to="user ? '/main/recent' : '/'">Thanks</RouterLink>
     </div>
-    
+
     <nav v-if="!user" class="auth-nav">
       <RouterLink to="/register" class="btn signup">無料で始める</RouterLink>
       <RouterLink to="/login" class="btn login">ログイン</RouterLink>
@@ -50,7 +50,7 @@ const handleLogout = async () => {
   border-bottom: 1px solid #fdeee0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   font-family: 'Poppins', sans-serif;
-  
+
   /* ★★★ ここからが追加したスタイルです ★★★ */
   position: fixed; /* 要素を画面に固定する */
   top: 0;          /* 画面の上端を基準にする */

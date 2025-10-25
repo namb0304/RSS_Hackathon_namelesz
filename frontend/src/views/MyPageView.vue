@@ -1,7 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router' // ★ 1. useRouter をインポート
 import { ref, onMounted, computed } from 'vue'
-import { auth, getUserProfile, getMyPageStats, getMyPosts, getMyConnectedPosts, getMyLikedPosts } from '../firebase'
+import { auth, getUserProfile, getMyPageStats, getMyPosts, getMyConnectedPosts, getMyLikedPosts } from '../firebaseService'
 import ThanksCard from '../components/ThanksCard.vue'
 
 const router = useRouter() // ★ 2. routerインスタンスを取得
@@ -66,7 +66,7 @@ onMounted(async () => {
     </div>
 
     <div v-if="isLoading" class="message"><p>読み込み中...</p></div>
-    
+
     <div v-else-if="!uid" class="message"><p>このページを表示するにはログインが必要です。</p></div>
 
     <div v-else>
@@ -115,7 +115,7 @@ onMounted(async () => {
   display: inline-flex; /* アイコンとテキストをきれいに並べるため */
   align-items: center;
   gap: 0.5rem;
-  
+
   font-size: 1rem; /* 文字を少し大きく */
   font-weight: bold;
   color: #dc8144ff; /* テーマカラーを使用 */

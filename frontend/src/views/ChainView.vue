@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPostChain, getUserProfile, likePost } from '../firebase'
+import { getPostChain, getUserProfile, likePost } from '../firebaseService'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
 import { user } from '../store/user'
 
@@ -53,17 +53,17 @@ const loadAuthorProfiles = async (posts) => {
 // いいね機能の追加
 const handleLike = async (post, event) => {
   event.stopPropagation();
-  if (!user.value) { 
-    alert("いいねするにはログインが必要です。"); 
-    return; 
+  if (!user.value) {
+    alert("いいねするにはログインが必要です。");
+    return;
   }
-  
+
   const myLikeCount = getMyLikeCount(post);
-  if (myLikeCount >= 10) { 
-    alert("いいねは一投稿につき10回までです！"); 
-    return; 
+  if (myLikeCount >= 10) {
+    alert("いいねは一投稿につき10回までです！");
+    return;
   }
-  
+
   try {
     if (post.likeCount === undefined) post.likeCount = 0;
     post.likeCount++;
@@ -106,7 +106,7 @@ const getColorByDepth = (depth) => {
  */
 const treeLayout = computed(() => {
   console.log('--- 🌳 家系図の計算を開始します ---');
-  
+
   const nodes = [];
   const connectors = [];
   if (chainPosts.value.length === 0) {
@@ -154,7 +154,7 @@ const treeLayout = computed(() => {
     if (node.replyTo) {
       const parentPos = nodePositions.get(node.replyTo);
       const childPos = nodePositions.get(node.id);
-      
+
       if (!parentPos) {
         console.warn(`❗️ 親ノードが見つかりません。投稿ID: ${node.id}, 親のID: ${node.replyTo}`);
       }
@@ -171,7 +171,7 @@ const treeLayout = computed(() => {
       }
     }
   });
-  
+
   const maxDepth = Math.max(...chainPosts.value.map(p => p.depth || 0), 0);
   const containerHeight = 120 + maxDepth * 100;
 
@@ -211,7 +211,7 @@ const actionPosts = computed(() => {
 const getAuthorName = (post) => {
   if (!post || !post.authorId) return '読み込み中...';
   if (post.isAnonymous) return '匿名ユーザー'
-   
+
   const profile = authorProfiles.value[post.authorId]
   return profile?.displayName || '名前未設定のユーザー'
 }
@@ -229,13 +229,13 @@ const formatTimestamp = (timestamp) => {
 const handleBack = () => {
   router.push('/');
 }
-const handleNextActionClick = () => {
-  if (chainPosts.value.length > 0) {
-    const originalPost = chainPosts.value[highlightedPostIndex.value]
-    replyToPost.value = originalPost
-    isPostFormModalOpen.value = true
-  }
-}
+// const handleNextActionClick = () => {
+//   if (chainPosts.value.length > 0) {
+//     const originalPost = chainPosts.value[highlightedPostIndex.value]
+//     replyToPost.value = originalPost
+//     isPostFormModalOpen.value = true
+//   }
+// }
 </script>
 
 <template>
@@ -247,14 +247,14 @@ const handleNextActionClick = () => {
     <div v-if="isLoading" class="loading-container">
       <p>読み込み中...</p>
     </div>
-      
+
     <div v-else-if="chainPosts.length > 0" class="detail-container">
       <div class="detail-left">
-          
+
         <div class="thread-container">
-          <div 
-            v-if="rootPost" 
-            class="thread-item thanks-post" 
+          <div
+            v-if="rootPost"
+            class="thread-item thanks-post"
             :class="{ highlight: highlightedPostIndex === 0 }"
             @click="highlightThread(0)"
           >
@@ -276,7 +276,7 @@ const handleNextActionClick = () => {
                     <span v-for="tag in rootPost.tags" :key="tag" class="tag">#{{ tag }}</span>
                   </div>
                 </div>
-                
+
                 <div class="thread-actions">
                   <button @click="handleLike(rootPost, $event)" class="like-button" :title="`10回までいいねできます`">
                     <span>❤️ {{ rootPost.likeCount || 0 }}</span>
@@ -292,9 +292,9 @@ const handleNextActionClick = () => {
               </div>
             </div>
           </div>
-            
-          <div 
-            v-for="(post, index) in actionPosts" 
+
+          <div
+            v-for="(post, index) in actionPosts"
             :key="post.id"
             class="thread-item next-action"
             :class="{ highlight: highlightedPostIndex === index + 1 }"
@@ -318,7 +318,7 @@ const handleNextActionClick = () => {
                     <span v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</span>
                   </div>
                 </div>
-                
+
                 <div class="thread-actions">
                   <button @click="handleLike(post, $event)" class="like-button" :title="`10回までいいねできます`">
                     <span>❤️ {{ post.likeCount || 0 }}</span>
@@ -335,7 +335,7 @@ const handleNextActionClick = () => {
           </div>
         </div>
       </div>
-        
+
       <div class="detail-right">
         <div class="family-tree">
           <div class="tree-title">感謝の連鎖マップ <span class="tree-subtitle">(クリックで詳細表示)</span></div>
@@ -357,7 +357,7 @@ const handleNextActionClick = () => {
                 >
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#ccc" />
                 </marker>
-                
+
                 <marker
                 id="arrowhead-highlight"
                 viewBox="0 0 10 10"
@@ -387,12 +387,12 @@ const handleNextActionClick = () => {
                 marker-end="url(#arrowhead)"
             />
             </svg>
-            
+
             <div
               v-for="node in treeLayout.nodes"
               :key="node.id"
               class="tree-node"
-              :class="{ 
+              :class="{
                 active: highlightedPostIndex === node.originalIndex,
                 root: node.isRoot,
                 'is-family': node.id === highlightedFamilyIds.parent ||
@@ -405,7 +405,7 @@ const handleNextActionClick = () => {
               {{ getAvatarInitial(node) }}
               <span class="node-tooltip">{{ node.text.substring(0, 20) }}...</span>
             </div>
-            
+
             <div class="tree-levels">
               <div
                 v-for="level in (Math.max(...chainPosts.map(p => p.depth || 0), 0) + 1)"
@@ -434,7 +434,7 @@ const handleNextActionClick = () => {
         </div>
       </div>
     </div>
-      
+
     <div v-else class="empty-container">
       <p>投稿が見つかりませんでした。</p>
       <button class="back-btn" @click="handleBack">タイムラインに戻る</button>
@@ -490,7 +490,7 @@ const handleNextActionClick = () => {
   .detail-right {
     flex: 4;
     position: sticky;
-    top: 125px; 
+    top: 125px;
     align-self: flex-start;
   }
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { addThanksPost } from '../firebase.js'
+import { addThanksPost } from '../firebaseService'
 // ★★★ ログイン中のユーザー情報を取得するためにインポート ★★★
 import { user } from '../store/user'
 
@@ -15,7 +15,7 @@ const submitPost = async () => {
     alert('感謝の気持ちを入力してください。')
     return
   }
-  
+
   isLoading.value = true
 
   try {
@@ -26,7 +26,7 @@ const submitPost = async () => {
       authorName: user.value.displayName, // ログインしているユーザーの名前
       isAnonymous: isAnonymous.value,
     })
-    
+
     emit('close')
 
   } catch (error) {
@@ -48,14 +48,14 @@ const submitPost = async () => {
         placeholder="今日あった嬉しいこと、感謝したことは何ですか？"
         rows="5"
       ></textarea>
-      
+
       <div class="options">
         <label>
           <input type="checkbox" v-model="isAnonymous" />
           匿名で投稿する
         </label>
       </div>
-      
+
       <div class="buttons">
         <button @click="$emit('close')" class="btn-cancel">キャンセル</button>
         <button @click="submitPost" class="btn-submit" :disabled="isLoading">

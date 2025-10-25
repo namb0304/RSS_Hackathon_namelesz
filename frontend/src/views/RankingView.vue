@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 // Firebaseからランキングデータを取得する関数（この関数は別途作成する必要があります）
-import { fetchRankingPosts } from '../firebase' 
+import { fetchRankingPosts } from '../firebaseService'
 import ThanksCard from '../components/ThanksCard.vue'
 
 // リアクティブな状態変数
@@ -50,7 +50,7 @@ watch(selectedPeriod, (newPeriod) => {
     <h2>ランキング</h2>
 
     <nav class="ranking-tabs">
-      <a 
+      <a
         href="#"
         @click.prevent="selectPeriod('daily')"
         :class="{ active: selectedPeriod === 'daily' }"
@@ -72,14 +72,14 @@ watch(selectedPeriod, (newPeriod) => {
         月刊
       </a>
     </nav>
-    
+
     <div v-if="isLoading" class="message">
       <p>ランキングを集計中...</p>
     </div>
 
     <div v-else-if="posts.length > 0" class="ranking-list">
-      <div 
-        v-for="(post, index) in posts" 
+      <div
+        v-for="(post, index) in posts"
         :key="post.id"
         class="ranking-item"
       >
@@ -156,7 +156,7 @@ h2 {
 .ranking-item {
   position: relative;
   /* 順位バッジを配置するために左に余白を確保 */
-  padding-left: 60px; 
+  padding-left: 60px;
 }
 
 /* 順位を表示するバッジのスタイル */

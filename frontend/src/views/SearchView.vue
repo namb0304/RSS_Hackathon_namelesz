@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { searchPosts } from '../firebase'
+import { searchPosts } from '../firebaseService'
 import ThanksCard from '../components/ThanksCard.vue'
 import ActionCard from '../components/ActionCard.vue' // // リアクティブな状態変数
 const searchQuery = ref('')      // 検索フォームの入力値
@@ -17,7 +17,7 @@ const performSearch = async () => {
   if (!searchQuery.value.trim()) {
     return
   }
-  
+
   isLoading.value = true
   hasSearched.value = true
   results.value = [] // 新しい検索の前に結果をリセット
@@ -41,11 +41,11 @@ const performSearch = async () => {
 <template>
   <div class="page-container">
     <h2>投稿を検索</h2>
-    
+
     <form @submit.prevent="performSearch" class="search-form">
       <div class="search-input-wrapper">
-        <input 
-          type="text" 
+        <input
+          type="text"
           v-model="searchQuery"
           placeholder="タグやキーワードを入力"
           class="search-input"
@@ -64,15 +64,15 @@ const performSearch = async () => {
         </label>
       </div>
     </form>
-    
+
     <div class="results-area">
       <div v-if="isLoading" class="message">
         <p>検索中...</p>
       </div>
-      
+
       <div v-else-if="hasSearched && results.length > 0" class="posts-list">
         <p class="search-info">「{{ searchQuery }}」の検索結果: {{ results.length }}件</p>
-        
+
         <template v-for="post in results" :key="post.id">
           <ThanksCard v-if="post.type === 'thanks'" :post="post" />
           <ActionCard v-else-if="post.type === 'action'" :post="post" />

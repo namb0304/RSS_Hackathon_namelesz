@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router' // ★ RouterLink をインポート
-import { loginWithEmail } from '../firebase'
+import { loginWithEmail } from '../firebaseService'
 
 const email = ref('')
 const password = ref('')

@@ -5,7 +5,7 @@ import TheHeader from './components/TheHeader.vue'
 import PostFormModal from './components/PostFormModal.vue'
 import { isPostFormModalOpen } from './store/modal'
 import { user } from './store/user'
-import { auth } from './firebase'
+import { auth } from './firebaseService'
 import { onAuthStateChanged } from 'firebase/auth'
 
 const route = useRoute()
@@ -32,9 +32,9 @@ onMounted(() => {
 
   <PostFormModal v-if="isPostFormModalOpen" />
 
-  <button 
+  <button
     v-if="showFloatingButton"
-    @click="isPostFormModalOpen = true" 
+    @click="isPostFormModalOpen = true"
     class="floating-post-button"
   >
     +
@@ -56,7 +56,7 @@ body,
 
 <style scoped>
 main {
-  padding-top: 70px; 
+  padding-top: 70px;
 }
 
 .floating-post-button {
