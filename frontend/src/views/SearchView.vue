@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { searchPosts } from '../firebaseService'
+// import { searchPosts } from '../firebaseService'
 import ThanksCard from '../components/ThanksCard.vue'
 import ActionCard from '../components/ActionCard.vue' // // リアクティブな状態変数
 const searchQuery = ref('')      // 検索フォームの入力値

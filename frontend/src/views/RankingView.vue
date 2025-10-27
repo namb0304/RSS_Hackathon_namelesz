@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 // Firebaseからランキングデータを取得する関数（この関数は別途作成する必要があります）
-import { fetchRankingPosts } from '../firebaseService'
+// import { fetchRankingPosts } from '../firebaseService'
 import ThanksCard from '../components/ThanksCard.vue'
 
 // リアクティブな状態変数

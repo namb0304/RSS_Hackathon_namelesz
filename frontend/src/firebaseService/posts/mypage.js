@@ -90,3 +90,28 @@ export const getMyLikedPosts = async (uid) => {
     return [];
   }
 };
+
+/**
+ * [マイページ用] 自分がLv.0で投稿したThanks（Root投稿）を取得
+ */
+export const getMyRootPosts = async (uid) => {
+  if (!uid) return [];
+  
+  const q = query(
+    postsCollection,
+    where("authorId", "==", uid),
+    where("type", "==", "thanks"),
+    where("depth", "==", 0),
+    orderBy("timestamp", "desc")
+  );
+
+  try {
+    const querySnapshot = await getDocs(q);
+    const posts = [];
+    querySnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+    return posts;
+  } catch (error) {
+    console.error("Error fetching my root posts:", error);
+    return [];
+  }
+};
