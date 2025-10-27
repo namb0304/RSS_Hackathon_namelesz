@@ -15,18 +15,8 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'landing',
-      component: LandingView
-    },
-    {
-      path: '/main',
-      component: MainView,
-      redirect: '/main/recent', 
-      children: [
-        { path: 'recent', name: 'recent', component: RecentPostsView },
-        { path: 'search', name: 'search', component: SearchView },
-        { path: 'ranking', name: 'ranking', component: RankingView },
-      ]
+      name: 'main',
+      component: MainView
     },
     // ★★★ マイページをMainViewの子供から独立させる ★★★
     {
