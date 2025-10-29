@@ -17,3 +17,8 @@ services:
       - /app/node_modules
     # コンテナに名前をつける
     container_name: thanks-relay-dev
+
+    # コンテナに対話的に接続できるようにする設定 (-i と同じ)
+    stdin_open: true
+    # 擬似ターミナルを割り当てる設定 (-t と同じ)
+    tty: true
