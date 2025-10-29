@@ -226,6 +226,8 @@ const isDimmed = computed(() => isModalOpen.value)
   </div>
 </template>
 
+
+
 <style scoped>
 /* カードハイライト */
 .cards-grid .thanks-card.highlighted {
@@ -241,12 +243,21 @@ const isDimmed = computed(() => isModalOpen.value)
   position: relative;
   min-height: calc(100vh - 70px);
   overflow: hidden;
+  
+  /* ★★★ 修正: Flexコンテナ化 ★★★ */
+  display: flex;
+  flex-direction: column;
 }
 
 /* 海のグラデーション */
 .ocean-container {
   position: relative;
-  min-height: calc(100vh - 70px);
+  /* ★★★ 修正: min-height を削除 ★★★ */
+  /* min-height: calc(100vh - 70px); */ 
+  
+  /* ★★★ 修正: flex: 1 で親の高さに追従 ★★★ */
+  flex: 1;
+
   background: linear-gradient(
     to bottom,
     #87CEEB 0%,   /* 空色 */
@@ -258,6 +269,10 @@ const isDimmed = computed(() => isModalOpen.value)
   transition: filter 0.3s ease;
   padding: 2rem 1rem;
   overflow: hidden;
+
+  /* ★★★ 追加: 中身(bottles-areaなど)を正しく配置するため ★★★ */
+  display: flex;
+  flex-direction: column;
 }
 .ocean-container.dimmed { 
   filter: brightness(0.6); 
@@ -307,7 +322,9 @@ const isDimmed = computed(() => isModalOpen.value)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 50vh;
+  /* ★★★ 修正: flex: 1 で中央に配置 ★★★ */
+  flex: 1;
+  /* height: 50vh; */ /* 削除 */
   color: #fff;
   font-size: 1.2rem;
   z-index: 1;
@@ -333,9 +350,14 @@ const isDimmed = computed(() => isModalOpen.value)
 
 .bottles-area {
   position: relative;
-  height: 70vh;
+  /* ★★★ 修正: height -> flex: 1 ★★★ */
+  /* height: 70vh; */
+  flex: 1;
+  
   max-width: 1400px;
   margin: 0 auto;
+  /* ★★★ 追加: bottles-area自体が幅を持つように ★★★ */
+  width: 100%; 
 }
 
 /* アニメーションの定義 (片道) */
