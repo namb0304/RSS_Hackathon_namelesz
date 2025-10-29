@@ -28,7 +28,7 @@ const handleRegister = async () => {
       displayName: username.value,
     }
 
-    router.push('/main')
+    router.push('/')
 
   } catch (error) {
     console.error('登録エラー:', error.code)
