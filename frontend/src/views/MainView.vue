@@ -33,24 +33,24 @@ const generateBottleStyle = (index) => {
   
   const pattern = patterns[index % patterns.length]
   
-  // 1. 大移動 (30〜45秒かけて移動)
-  const journeyDuration = Math.random() * 15 + 30
+  // 1. 大移動 (★35〜55秒かけて移動 - 少しゆっくりに)
+  const journeyDuration = Math.random() * 20 + 35
   const journeyDelay = Math.random() * 10
   
-  // 2. 縦の「ぷかぷか」 (3〜5秒周期で、50〜110px上下)
-  const bobDuration = Math.random() * 2 + 3
+  // 2. 縦の「ぷかぷか」 (★6〜11秒周期 - さらにゆったり)
+  const bobDuration = Math.random() * 5 + 6
   const bobDelay = Math.random() * 2
-  const bobY = Math.random() * 60 + 50
+  const bobY = Math.random() * 60 + 50 // 50〜110px上下
   
   // 3. 回転のゆらぎ (5〜9秒周期で、±25〜60度回転)
   const rotateDuration = Math.random() * 4 + 5
   const rotateDelay = Math.random() * 3
   const rotateAngle = Math.random() * 35 + 25
   
-  // 4. 小刻みな横揺れ (2〜4秒周期で、30〜70px左右)
-  const wiggleDuration = Math.random() * 2 + 2
+  // 4. 小刻みな横揺れ (★3〜6秒周期 - 少しゆっくりに)
+  const wiggleDuration = Math.random() * 3 + 3
   const wiggleDelay = Math.random() * 1.5
-  const wiggleX = Math.random() * 40 + 30
+  const wiggleX = Math.random() * 40 + 30 // 30〜70px左右
   
   return {
     '--start-x': `${pattern.startX}%`,
@@ -273,7 +273,6 @@ const isDimmed = computed(() => isModalOpen.value)
   pointer-events: none;
   z-index: 0;
 }
-
 .waves::before,
 .waves::after {
   content: '';
@@ -287,19 +286,16 @@ const isDimmed = computed(() => isModalOpen.value)
   background-repeat: repeat-x;
   animation: wave-scroll 15s linear infinite;
 }
-
 .waves::before {
   opacity: 0.1;
   animation-duration: 10s;
   animation-direction: reverse;
 }
-
 .waves::after {
   opacity: 0.2;
   animation-duration: 20s;
   bottom: 10px;
 }
-
 @keyframes wave-scroll {
   from { background-position-x: 0; }
   to { background-position-x: 1000px; }
@@ -342,134 +338,97 @@ const isDimmed = computed(() => isModalOpen.value)
   margin: 0 auto;
 }
 
-/* ========================================================= */
-/* ★★★ 改良: 4層アニメーション（滑らかな往復） ★★★ */
-/* ========================================================= */
-
-/* 1️⃣ 画面を大きく横断 (0% -> 100% の「片道」) */
+/* アニメーションの定義 (片道) */
 @keyframes bottleJourney {
-  0% {
-    left: var(--start-x);
-    top: var(--start-y);
-  }
-  100% {
-    left: var(--end-x);
-    top: var(--end-y);
-  }
+  0% { left: var(--start-x); top: var(--start-y); }
+  100% { left: var(--end-x); top: var(--end-y); }
 }
-
-/* 2️⃣ 縦の「ぷかぷか」波のうねり (0% -> 100% の「片道」) */
 @keyframes floatBob {
-  0% {
-    transform: translateY(0);
-  }
-  100% {
-    transform: translateY(calc(var(--bob-y) * -1));
-  }
+  0% { transform: translateY(0); }
+  100% { transform: translateY(calc(var(--bob-y) * -1)); }
 }
-
-/* 3️⃣ 小刻みな横揺れ (0% -> 100% の「片道」) */
 @keyframes floatWiggle {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(var(--wiggle-x));
-  }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(var(--wiggle-x)); }
 }
-
-/* 4️⃣ 回転のゆらぎ (0% -> 100% の「片道」) */
 @keyframes floatRotate {
-  0% {
-    transform: rotate(calc(var(--rotate-angle) * -0.5));
-  }
-  100% {
-    transform: rotate(calc(var(--rotate-angle) * 0.5));
-  }
+  0% { transform: rotate(calc(var(--rotate-angle) * -0.5)); }
+  100% { transform: rotate(calc(var(--rotate-angle) * 0.5)); }
 }
 
-/* ボトルラッパー (4層全部適用 + 加速度調整) */
+/* ボトルラッパー (移動 + 上下動) */
 .bottle-wrapper {
   position: absolute;
   cursor: pointer;
-  z-index: 1; /* 波より上 */
-  
-  animation-name: bottleJourney, floatBob, floatWiggle, floatRotate;
-  
-  /* ★★★ 改良: 加速度の調整 ★★★ */
-  /*
-    'ease-in-out' に統一。
-    これにより、動きの「始まり」と「終わり」がすべて滑らかになる。
-  */
-  animation-timing-function: 
-    ease-in-out, /* 1. Journey */
-    ease-in-out, /* 2. Bob */
-    ease-in-out, /* 3. Wiggle */
-    ease-in-out; /* 4. Rotate */
-  
-  animation-iteration-count: infinite, infinite, infinite, infinite;
-  
-  /* ★★★ 改良: 往復運動の指定 ★★★ */
-  /*
-    'alternate' (往復) に設定。
-    これにより「行き」と「帰り」が滑らかに繋がり、
-    カクカクした「跳ね返り」が完全になくなる。
-  */
-  animation-direction: alternate, alternate, alternate, alternate;
-
-  /* ★★★ 改良: 初期位置の適用 ★★★ */
-  /*
-    'backwards' を指定。
-    これにより、リロード直後（delay中）に左上に飛ぶ問題がなくなり、
-    最初から 'start-x', 'start-y' の位置で待機する。
-  */
-  animation-fill-mode: backwards, backwards, backwards, backwards;
-
+  z-index: 1;
+  animation-name: bottleJourney, floatBob;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+  animation-fill-mode: backwards, backwards;
   animation-duration: 
     var(--journey-duration),
-    var(--bob-duration), 
-    var(--wiggle-duration),
-    var(--rotate-duration);
+    var(--bob-duration);
   animation-delay: 
     var(--journey-delay),
-    var(--bob-delay), 
-    var(--wiggle-delay),
-    var(--rotate-delay);
+    var(--bob-delay);
 }
 
-/* ★★★ 改良: .bottle コンテナ ★★★ */
+/* .bottle コンテナ (タグの親 + 横揺れ) */
 .bottle {
-  /* タグの配置基準にするため relative を指定 */
   position: relative;
-  display: inline-block; /* transform しやすくするため */
+  display: inline-block;
+  animation-name: floatWiggle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-fill-mode: backwards;
+  animation-duration: var(--wiggle-duration);
+  animation-delay: var(--wiggle-delay);
 }
 
-/* ボトル画像 */
+/* ボトル画像 (回転) */
 .bottle-image {
-  /* ★★★ 改良: ボトルサイズを大きく ★★★ */
-  width: 180px;
+  /* ★ サイズを大きく */
+  width: 220px; 
   height: auto;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
   transition: transform 0.3s ease, filter 0.3s ease;
+  animation-name: floatRotate;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-fill-mode: backwards;
+  animation-duration: var(--rotate-duration);
+  animation-delay: var(--rotate-delay);
 }
 
 .bottle-wrapper:hover .bottle-image {
   transform: scale(1.15);
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
+  animation-play-state: paused;
 }
-
 .bottle-wrapper:hover {
   animation-play-state: paused;
   z-index: 10;
 }
+.bottle-wrapper:hover .bottle {
+  animation-play-state: paused;
+}
 
-/* ★★★ 改良: タグのデザイン (白タグ) ★★★ */
+
+/* ★★★ 改良: タグのデザイン (中央基点) ★★★ */
 .bottle-tags {
   position: absolute;
-  /* ボトル画像の手紙の位置に微調整 */
-  bottom: 50px; 
-  left: 60%;
-  transform: translateX(-50%) rotate(8deg); /* 少し斜めに */
+  /* ★ .bottle コンテナの中央を基点にする */
+  top: 50%;
+  left: 50%;
+  /* ★ 基点から手紙の紐あたりまで微調整 */
+  /* translateX(-50%) translateY(-50%) で中央揃えにしつつ、
+     ピクセルで右下にずらす */
+  /* ★★★ 改良: translateY の値を増やして全体を下に移動 ★★★ */
+  /* 以前: translateY(calc(-50% + 15px)) */
+  transform: translateX(calc(-50% + 25px)) translateY(calc(-50% + 60px)) rotate(8deg); /* Y方向のオフセットを +15px -> +25px に変更 */
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -482,25 +441,32 @@ const isDimmed = computed(() => isModalOpen.value)
 .bottle-tags::before {
   content: '';
   position: absolute;
-  top: -12px;
-  left: 10px;
-  width: 1px; /* 紐を細く */
-  height: 15px;
-  background: #A1887F; /* 紐の色 (こげ茶) */
-  transform: rotate(-25deg);
+  /* ★ タグの上端左側に紐の「下端」が来るように調整 */
+  top: -30px;      /* タグの上端に合わせる */
+  left: 0px;   /* タグの少し左に起点 */
+  
+  /* ★ 紐自体の回転起点 */
+  transform-origin: bottom center; 
+  
+  /* ★★★ 改良: translateYを削除し、rotateのみにする ★★★ */
+  /* これにより、紐の下端が top:0, left:5px の位置に来る */
+  transform: rotate(-15deg); 
+  
+  width: 2px;
+  height: 35px; /* 紐の長さ */
+  background: #902821c3;
   opacity: 0.8;
 }
-
 /* 白いタグ本体 */
 .simple-tag {
-  background: #ffffff; /* 白背景 */
+  background: rgba(255, 255, 255, 0.85); /* 半透明 */
   padding: 3px 7px;
   border-radius: 4px;
   font-size: 0.7rem;
-  color: #4E4E4E; /* グレー文字 */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  color: #4E4E4E;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
   font-weight: 600;
-  border: 1px solid #eee;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   white-space: nowrap;
 }
 
@@ -509,7 +475,7 @@ const isDimmed = computed(() => isModalOpen.value)
   font-size: 0.7rem;
   color: #4E4E4E;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.75);
   border-radius: 4px;
   padding: 2px 4px;
 }
@@ -625,7 +591,6 @@ const isDimmed = computed(() => isModalOpen.value)
 /* レスポンシブ */
 @media (max-width: 768px) {
   .bottle-image { 
-    /* ★★★ 改良: スマホでもサイズアップ ★★★ */
     width: 125px; 
   }
   .floating-toggle { 
@@ -636,6 +601,15 @@ const isDimmed = computed(() => isModalOpen.value)
   .simple-tag { 
     font-size: 0.65rem; 
     padding: 3px 6px; 
+  }
+  
+  /* ★ スマホ用のタグ位置調整 */
+  .bottle-tags {
+    /* (125px幅の画像に合わせる) */
+    top: 50%;
+    left: 50%;
+    /* 中央から右下に微調整 */
+    transform: translateX(calc(-50% + 15px)) translateY(calc(-50% + 10px)) rotate(8deg); 
   }
 }
 </style>
