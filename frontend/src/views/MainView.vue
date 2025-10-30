@@ -15,16 +15,16 @@ const router = useRouter()
 
 // ★ 海・ボトルメール・島の世界観に合う色パレット
 const OCEAN_COLORS = [
-  { name: 'coral', bg: 'rgba(255, 127, 80, 0.6)', border: '#FF7F50', shadow: 'rgba(255, 127, 80, 0.4)' },      // コーラル
-  { name: 'turquoise', bg: 'rgba(64, 224, 208, 0.6)', border: '#40E0D0', shadow: 'rgba(64, 224, 208, 0.4)' }, // ターコイズ
-  { name: 'ocean', bg: 'rgba(30, 144, 255, 0.6)', border: '#1E90FF', shadow: 'rgba(30, 144, 255, 0.4)' },     // オーシャンブルー
-  { name: 'sand', bg: 'rgba(244, 164, 96, 0.6)', border: '#F4A460', shadow: 'rgba(244, 164, 96, 0.4)' },      // サンディブラウン
-  { name: 'seaweed', bg: 'rgba(46, 139, 87, 0.6)', border: '#2E8B57', shadow: 'rgba(46, 139, 87, 0.4)' },     // シーグリーン
-  { name: 'shell', bg: 'rgba(255, 182, 193, 0.6)', border: '#FFB6C1', shadow: 'rgba(255, 182, 193, 0.4)' },   // シェルピンク
-  { name: 'sunset', bg: 'rgba(255, 140, 0, 0.6)', border: '#FF8C00', shadow: 'rgba(255, 140, 0, 0.4)' },      // サンセットオレンジ
-  { name: 'pearl', bg: 'rgba(230, 230, 250, 0.6)', border: '#E6E6FA', shadow: 'rgba(230, 230, 250, 0.4)' },   // パールラベンダー
-  { name: 'starfish', bg: 'rgba(255, 99, 71, 0.6)', border: '#FF6347', shadow: 'rgba(255, 99, 71, 0.4)' },    // トマトレッド
-  { name: 'wave', bg: 'rgba(70, 130, 180, 0.6)', border: '#4682B4', shadow: 'rgba(70, 130, 180, 0.4)' },      // スチールブルー
+  { name: 'coral', bg: 'rgba(255, 127, 80, 0.7)', border: '#FF7F50', shadow: 'rgba(255, 127, 80, 0.4)' },      // コーラル
+  { name: 'turquoise', bg: 'rgba(64, 224, 208, 0.7)', border: '#40E0D0', shadow: 'rgba(64, 224, 208, 0.4)' }, // ターコイズ
+  { name: 'ocean', bg: 'rgba(30, 144, 255, 0.7)', border: '#1E90FF', shadow: 'rgba(30, 144, 255, 0.4)' },     // オーシャンブルー
+  { name: 'sand', bg: 'rgba(244, 164, 96, 0.7)', border: '#F4A460', shadow: 'rgba(244, 164, 96, 0.4)' },      // サンディブラウン
+  { name: 'seaweed', bg: 'rgba(46, 139, 87, 0.7)', border: '#2E8B57', shadow: 'rgba(46, 139, 87, 0.4)' },     // シーグリーン
+  { name: 'shell', bg: 'rgba(255, 182, 193, 0.7)', border: '#FFB6C1', shadow: 'rgba(255, 182, 193, 0.4)' },   // シェルピンク
+  { name: 'sunset', bg: 'rgba(255, 140, 0, 0.7)', border: '#FF8C00', shadow: 'rgba(255, 140, 0, 0.4)' },      // サンセットオレンジ
+  { name: 'pearl', bg: 'rgba(230, 230, 250, 0.7)', border: '#E6E6FA', shadow: 'rgba(230, 230, 250, 0.4)' },   // パールラベンダー
+  { name: 'starfish', bg: 'rgba(255, 99, 71, 0.7)', border: '#FF6347', shadow: 'rgba(255, 99, 71, 0.4)' },    // トマトレッド
+  { name: 'wave', bg: 'rgba(70, 130, 180, 0.7)', border: '#4682B4', shadow: 'rgba(70, 130, 180, 0.4)' },      // スチールブルー
 ]
 
 // ★ 物理シミュレーション用の状態
@@ -285,32 +285,20 @@ onMounted(() => {
     <button
       class="refresh-btn"
       @click="fetchPosts"
-      title="新しいボトルを探しに行く"
-      aria-label="新しいボトルを探しに行く"
+      title="別のボトルを探す"
+      aria-label="別のボトルを探す"
     >
-      新しくボトルを探しに行く
+      別のボトルを探す
     </button>
 
     <button
       v-if="!isModalOpen"
       class="floating-toggle open-btn"
       @click="openModal"
-      title="ボトルを見る"
-      aria-label="ボトルを見る"
+      title="ボトルメールの詳細を見る"
+      aria-label="ボトルメールの詳細を見る"
     >
-      ↑
-      <span class="tooltip">ボトルを見る</span>
-    </button>
-
-    <button
-      v-else
-      class="floating-toggle close-btn"
-      @click="closeModal"
-      title="海に戻る"
-      aria-label="海に戻る"
-    >
-      ↓
-      <span class="tooltip">海に戻る</span>
+      ボトルメールの詳細を見る
     </button>
 
     <transition name="slide-up">
@@ -580,8 +568,8 @@ onMounted(() => {
 
 .bottle-tags {
   position: absolute;
-  top: 54%;
-  left: 57%;
+  top: 55%;
+  left: 58%;
   transform: translateX(calc(-50% + 25px)) translateY(calc(-50% + 60px)) rotate(8deg);
   display: flex;
   flex-direction: column;
@@ -648,8 +636,21 @@ onMounted(() => {
 .floating-toggle:hover {
   transform: translateX(-50%) scale(1.1);
 }
-.open-btn { background: #FF8C42; }
-.close-btn { background: #2196F3; }
+.open-btn {
+  background: #FF8C42;
+  width: auto; /* コンテンツに合わせて幅を自動調整 */
+  padding: 10px 20px; /* 左右にパディングを追加して楕円形にする */
+  border-radius: 25px; /* 丸みを大きくして楕円形にする */
+  writing-mode: horizontal-tb; /* テキストを横書きにする */
+  text-orientation: mixed; /* 縦書き時の文字の向きをリセット */
+  
+  /* === refresh-btn から抜粋したフォント設定 === */
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap; /* テキストを折り返さない */
+}
+
 .floating-toggle .tooltip {
   display: none;
   position: absolute;
@@ -685,7 +686,7 @@ onMounted(() => {
 
 .refresh-btn:hover {
   transform: scale(1.08);
-  background: #FF6F20;
+  background: #FF8C42;
   box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
@@ -707,7 +708,7 @@ onMounted(() => {
   background-color: rgba(255, 250, 245, 0.7); /* ★ 0.95 → 0.7 に変更 */
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  padding: 16px;
+  padding: 15px;
   box-shadow: 0 -4px 24px rgba(0,0,0,0.2);
   overflow-y: auto;
   backdrop-filter: blur(10px); /* ★ ぼかしを強化 */
@@ -720,16 +721,16 @@ onMounted(() => {
   margin: 0 auto 12px auto;
 }
 .modal-title {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #333;
+  color: #2b2b2b;
   text-align: center;
   margin-bottom: 1rem;
 }
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .slide-up-enter-active,

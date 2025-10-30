@@ -229,7 +229,7 @@ const cardStyle = computed(() => {
 <style scoped>
 .card.thanks-card {
   background-image: var(--scroll-bg); 
-  background-size: 95% 70%; 
+  background-size: 95% 90%; 
   background-repeat: no-repeat;
   background-position: center;
   background-color: transparent;
@@ -286,15 +286,19 @@ const cardStyle = computed(() => {
 
 /* ★ 選択されていないカードは透過率を上げて目立たなくする */
 .card.thanks-card.is-not-selected {
-  opacity: 0.25 !important;
+  /* カード本体は透過させない */
+  opacity: 1 !important;
+  /* 枠線だけ薄くする */
   outline-width: 2px !important;
+  outline-color: rgba(128, 128, 128, 0.3) !important;
   box-shadow: 
-    0 0 5px var(--card-shadow) !important,
-    0 0 10px var(--card-shadow) !important;
+    0 0 5px rgba(128, 128, 128, 0.2) !important,
+    0 0 10px rgba(128, 128, 128, 0.1) !important;
 }
 
 .card.thanks-card.is-not-selected::before {
-  opacity: 0.2 !important;
+  /* 内側の光も薄くする */
+  opacity: 0.1 !important;
 }
 
 /* ★ 選択されたカードははっきり表示 */
@@ -390,7 +394,7 @@ const cardStyle = computed(() => {
 }
 
 .tag {
-  background-color: rgba(255, 255, 255, 0.3); 
+  background-color: rgba(255, 255, 255, 0.2); 
   color: #4B3832;
   padding: 4px 10px;
   border-radius: 10px;
@@ -453,8 +457,8 @@ const cardStyle = computed(() => {
 
 .like-btn {
   background-color: #FBE9E7; 
-  color: #D32F2F;
-  border: 2px solid #D32F2F;
+  color: #d35454;
+  border: 2px solid #d45050;
   box-shadow: none; 
 }
 .like-btn:hover {
