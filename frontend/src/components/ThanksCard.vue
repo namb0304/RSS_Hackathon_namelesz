@@ -1,10 +1,11 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
 import { getUserProfile, likePost, saveAsTask, hidePost } from '../firebaseService'
-// ★ 'isPostFormModalOpen' と 'replyToPost' は使わなくなったので削除
-// import { isPostFormModalOpen, replyToPost } from '../store/modal'
 import { user } from '../store/user'
 import { useRouter } from 'vue-router'
+
+// 画像アセットのインポート
+import scrollBackground from '../assets/thanks-card.png'
 
 const props = defineProps({
   post: {
@@ -60,8 +61,6 @@ const goToChain = () => {
   router.push({ name: 'chain', params: { id: props.post.id } })
 }
 
-// ★ 「続ける」ボタンのロジック (handleReplyClick) を仕様書に基づき削除
-
 // いいね: 1人10回まで
 const myLikeCount = computed(() => {
   if (!user.value || !props.post.likesMap) return 0;
@@ -70,7 +69,6 @@ const myLikeCount = computed(() => {
 
 const handleLike = async () => {
   if (!user.value) {
-    // 未ログインならログインページへ
     router.push('/login')
     return
   }
@@ -81,7 +79,6 @@ const handleLike = async () => {
   }
   processing.value = true
   try {
-    // optimistic UI
     if (props.post.likeCount === undefined) props.post.likeCount = 0;
     props.post.likeCount++;
     if (!props.post.likesMap) props.post.likesMap = {};
@@ -90,7 +87,6 @@ const handleLike = async () => {
     await likePost(props.post.id, user.value.uid);
   } catch (error) {
     console.error("いいね処理中にエラー:", error)
-    // rollback
     if (props.post.likeCount !== undefined) props.post.likeCount--;
     if (props.post.likesMap && user.value && props.post.likesMap[user.value.uid]) {
       props.post.likesMap[user.value.uid] = Math.max(0, props.post.likesMap[user.value.uid] - 1)
@@ -118,7 +114,6 @@ const handleSaveTask = async () => {
     alert("Taskとして保存しました!")
   } catch (error) {
     console.error("Task保存エラー:", error)
-    // もし既に保存済みなら UI を合わせる
     if (error && error.message && error.message.includes("既に")) {
       isTaskSaved.value = true
       alert("既にTaskとして保存されています")
@@ -141,9 +136,6 @@ const handleHide = async () => {
   try {
     await hidePost(props.post.id, user.value.uid)
     alert("投稿を非表示にしました")
-    // 親コンポーネント(MainView) が非表示投稿をフィルタリングして
-    // 再取得・再描画するのを待つ (window.location.reload() は避ける)
-    
   } catch (error) {
     console.error("非表示エラー:", error)
     alert("非表示に失敗しました")
@@ -151,10 +143,16 @@ const handleHide = async () => {
     processing.value = false
   }
 }
+
+// Vue 3.2+ <script setup> で CSS 変数をバインド
+const cardStyle = computed(() => ({
+  '--scroll-bg': `url(${scrollBackground})`
+}))
+
 </script>
 
 <template>
-  <div class="card thanks-card" role="article">
+  <div class="card thanks-card" role="article" :style="cardStyle">
     <div class="card-header">
       <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
         <template v-if="!authorAvatar">{{ avatarInitial }}</template>
@@ -163,7 +161,6 @@ const handleHide = async () => {
         <div class="name">{{ authorName }}</div>
         <div class="id">@{{ (authorName || '').toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
       </div>
-      <span class="post-type">Thanks</span>
     </div>
 
     <div class="card-body">
@@ -199,88 +196,112 @@ const handleHide = async () => {
         {{ isTaskSaved ? '✓ 保存済み' : '📌 Task保存' }}
       </button>
     </div>
-
-    </div>
+  </div>
 </template>
 
 <style scoped>
-.card {
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  /* ★ .card-footer が無くなったので、下部のマージンを .card 自体で調整 */
-  margin-bottom: 0; 
+/* --- 巻物カードスタイル（縦に引き伸ばし、コンテンツを巻物内に配置） --- */
+
+.card.thanks-card {
+  /* 背景画像の設定 */
+  background-image: var(--scroll-bg); 
+  background-size: 104% 80%; 
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
+  
+  /* 枠線なし */
+  border-radius: 0; 
+  box-shadow: none;
+  border: none;
+  
+  margin-bottom: 20px; 
+  
   display: flex;
   flex-direction: column;
-}
 
-.thanks-card {
-  border-left: 4px solid #FF8C42;
+  /* ★ 修正: テキストを下げるため、上パディングを 70px -> 90px に変更 */
+  padding: 130px 45px 50px 100px;
+
+  color: #4b3832c6;
+  image-rendering: -webkit-optimize-contrast;
+  
+  /* ★ アスペクト比を縦長に調整（横:縦 = 3:4 程度） */
+  aspect-ratio: 5 / 4;
+  width: 60%;
+  /* ★ 修正: max-width を 450px から 350px に変更して画像を小さくする */
+  max-width: 200px; 
 }
 
 .card-header {
+  padding: 0;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
-  padding: 16px 16px 0 16px;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  background-color: #f0f0f0;
-  margin-right: 12px;
+  margin-right: 15px;
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #555;
   font-weight: bold;
   background-size: cover;
   background-position: center;
+  
+  background-color: #D7CCC8; 
+  color: #5D4037; 
+  border: 2px solid #A1887F; 
+  flex-shrink: 0;
 }
 
 .user-info {
   flex-grow: 1;
+  min-width: 0; /* テキストが省略されるように */
 }
 
 .name {
   font-weight: bold;
-  color: #333;
   font-size: 1rem;
+  color: #3E2723;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .id {
-  color: #666;
   font-size: 0.8rem;
-}
-
-.post-type {
-  background-color: #FF8C42;
-  color: white;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: bold;
+  color: #5D4037;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-body {
-  padding: 0 16px 16px 16px;
+  padding: 0; 
+  margin-bottom: 20px; 
+  flex-grow: 1;
+  overflow-y: auto; /* 内容が多い場合にスクロール可能に */
 }
 
 .card-body p {
-  color: #333;
-  line-height: 1.5;
+  color: #3E2723;
+  line-height: 1.6;
   margin-top: 0;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  word-wrap: break-word;
 }
 
 .feeling-quote {
   font-style: italic;
-  color: #555;
+  color: #5D4037;
   margin: 12px 0;
-  border-left: 3px solid #FF8C42;
+  border-left: 3px solid #8D6E63;
   padding-left: 12px;
+  word-wrap: break-word;
 }
 
 .tags-container {
@@ -291,26 +312,32 @@ const handleHide = async () => {
 }
 
 .tag {
-  background-color: #f0f2f5;
-  color: #666;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
+  background-color: rgba(255, 255, 255, 0.3); 
+  color: #4B3832;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  border: 1px solid #C1A78A;
+  white-space: nowrap;
 }
 
-/* 4つのボタン */
+/* ボタンエリア */
 .card-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  /* ★ .card-footer が無くなったので、下部の padding を調整 */
-  padding: 0 16px 16px 16px;
-}
+  gap: 10px;
+  padding: 0;
+  margin-top: auto; 
+  
+  /* ★ 修正: 他の要素に影響を与えず、ボタン群だけを下に移動させます */
+  /* (正の値を指定すると下に移動します。80pxで試します) */
+  transform: translateY(75px);
+} 
 
 .action-btn {
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -319,38 +346,47 @@ const handleHide = async () => {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  
+  background-color: #8D6E63; 
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.action-btn:hover {
+  background-color: #795548; 
+  transform: translateY(-1px);
 }
 
 .chain-btn {
-  background-color: #4CAF50;
+  background-color: #689F38; 
   color: white;
 }
-.chain-btn:hover {
-  transform: translateY(-1px);
+.chain-btn:hover { 
+  background-color: #558B2F; 
 }
 
 .hide-btn {
-  background-color: #9E9E9E;
+  background-color: #757575; 
   color: white;
 }
-.hide-btn:hover {
-  transform: translateY(-1px);
+.hide-btn:hover { 
+  background-color: #616161; 
 }
 
 .like-btn {
-  background-color: #FFE5E5;
-  color: #E74C3C;
-  border: 2px solid #E74C3C;
-  position: relative;
+  background-color: #FBE9E7; 
+  color: #D32F2F;
+  border: 2px solid #D32F2F;
+  box-shadow: none; 
 }
 .like-btn:hover {
-  background-color: #E74C3C;
+  background-color: #D32F2F;
   color: white;
   transform: translateY(-1px);
 }
 
 .my-like-badge {
-  background-color: #E74C3C;
+  background-color: #D32F2F;
   color: white;
   font-size: 0.7rem;
   padding: 2px 6px;
@@ -359,34 +395,57 @@ const handleHide = async () => {
 }
 
 .task-btn {
-  background-color: #FFF3CD;
-  color: #856404;
+  background-color: #FFF8E1; 
+  color: #AF8900;
   border: 2px solid #FFC107;
+  box-shadow: none;
 }
 .task-btn:hover {
   background-color: #FFC107;
-  color: white;
+  color: #3E2723;
   transform: translateY(-1px);
 }
 .task-btn.saved {
-  background-color: #D4EDDA;
-  color: #155724;
+  background-color: #E8F5E9; 
+  color: #2E7D32;
   border: 2px solid #28A745;
   cursor: default;
 }
-
-/* ★ .card-footer と .reply-button のスタイルを削除 */
+.task-btn.saved:hover {
+  transform: none;
+}
 
 /* スマホ対応 */
 @media (max-width: 768px) {
+  .card.thanks-card {
+    /* ★ 修正: テキストを下げるため、上パディングを 60px -> 80px に変更 */
+    padding: 80px 40px 40px 80px;
+    max-width: 100%;
+  }
+
   .card-actions {
     grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
+    gap: 8px;
+    /* ★ 修正: スマホ表示でも同様に下にずらす */
+    transform: translateY(20px); 
   }
 
   .action-btn {
     font-size: 0.75rem;
-    padding: 6px 8px;
+    padding: 8px 10px;
+  }
+  
+  .avatar {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .name {
+    font-size: 0.9rem;
+  }
+  
+  .id {
+    font-size: 0.75rem;
   }
 }
 </style>
