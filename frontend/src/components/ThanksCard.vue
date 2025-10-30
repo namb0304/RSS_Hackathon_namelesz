@@ -146,13 +146,11 @@ const handleHide = async () => {
   }
 }
 
-// ★ カードのスタイルに色情報を追加
 const cardStyle = computed(() => {
   const style = {
     '--scroll-bg': `url(${scrollBackground})`
   }
   
-  // ★ ボトルの色がある場合、枠線と影を追加
   if (props.bottleColor) {
     style['--card-border-color'] = props.bottleColor.border
     style['--card-shadow'] = props.bottleColor.shadow
@@ -252,12 +250,12 @@ const cardStyle = computed(() => {
   width: 60%;
   max-width: 200px;
   
-  /* ★ デフォルトの状態（色なし） */
   position: relative;
   transition: all 0.3s ease;
+  
+  font-family: "游明朝", "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", "HGS明朝E", "MS P明朝", "MS 明朝", serif;
 }
 
-/* ★ 色が適用された場合の枠線と影 */
 .card.thanks-card.with-color {
   outline: 4px solid var(--card-border-color);
   outline-offset: -8px;
@@ -284,11 +282,8 @@ const cardStyle = computed(() => {
   transition: opacity 0.3s ease;
 }
 
-/* ★ 選択されていないカードは透過率を上げて目立たなくする */
 .card.thanks-card.is-not-selected {
-  /* カード本体は透過させない */
   opacity: 1 !important;
-  /* 枠線だけ薄くする */
   outline-width: 2px !important;
   outline-color: rgba(128, 128, 128, 0.3) !important;
   box-shadow: 
@@ -297,11 +292,9 @@ const cardStyle = computed(() => {
 }
 
 .card.thanks-card.is-not-selected::before {
-  /* 内側の光も薄くする */
   opacity: 0.1 !important;
 }
 
-/* ★ 選択されたカードははっきり表示 */
 .card.thanks-card.is-selected {
   opacity: 1 !important;
   outline-width: 4px !important;
@@ -417,17 +410,19 @@ const cardStyle = computed(() => {
 } 
 
 .action-btn {
-  padding: 10px 12px;
+  padding: 8px 5px;
   border: none;
   border-radius: 10px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+
+  transform: translateX(-30px);
   
   background-color: #8D6E63; 
   color: white;
@@ -436,7 +431,6 @@ const cardStyle = computed(() => {
 
 .action-btn:hover {
   background-color: #795548; 
-  transform: translateY(-1px);
 }
 
 .chain-btn {
@@ -464,7 +458,6 @@ const cardStyle = computed(() => {
 .like-btn:hover {
   background-color: #D32F2F;
   color: white;
-  transform: translateY(-1px);
 }
 
 .my-like-badge {
@@ -485,7 +478,6 @@ const cardStyle = computed(() => {
 .task-btn:hover {
   background-color: #FFC107;
   color: #3E2723;
-  transform: translateY(-1px);
 }
 .task-btn.saved {
   background-color: #E8F5E9; 
@@ -494,7 +486,8 @@ const cardStyle = computed(() => {
   cursor: default;
 }
 .task-btn.saved:hover {
-  transform: none;
+  background-color: #E8F5E9;
+  color: #2E7D32;
 }
 
 @media (max-width: 768px) {
