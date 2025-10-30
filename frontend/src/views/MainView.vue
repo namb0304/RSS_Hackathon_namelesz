@@ -17,37 +17,37 @@ const router = useRouter()
 // ★★★ アニメーション調整の「司令塔」 ★★★
 // -----------------------------------------------------------------
 const generateBottleStyle = (index) => {
-  // 10種類の多様な軌道パターン
+  // 10種類の多様な軌道パターン (水平線視点: Y値は海エリア0-60%に制限)
   const patterns = [
-    { startX: 10, startY: 15, endX: 75, endY: 60 },   // 左上 → 右下
-    { startX: 70, startY: 10, endX: 15, endY: 65 },   // 右上 → 左下
-    { startX: 40, startY: 55, endX: 80, endY: 20 },   // 中央下 → 右上
-    { startX: 15, startY: 50, endX: 75, endY: 35 },   // 左下 → 右中央
-    { startX: 20, startY: 25, endX: 70, endY: 30 },   // 左上 → 右上(ほぼ水平)
-    { startX: 75, startY: 45, endX: 20, endY: 50 },   // 右中 → 左中(ほぼ水平)
-    { startX: 30, startY: 20, endX: 35, endY: 60 },   // 左寄り上 → 下
-    { startX: 65, startY: 55, endX: 60, endY: 15 },   // 右寄り下 → 上
-    { startX: 50, startY: 30, endX: 25, endY: 55 },   // 中央 → 左下
-    { startX: 25, startY: 40, endX: 70, endY: 25 },   // 左中 → 右上
+    { startX: 10, startY: 10, endX: 75, endY: 45 },   // 左上 → 右中
+    { startX: 70, startY: 5, endX: 15, endY: 50 },    // 右上 → 左中
+    { startX: 40, startY: 40, endX: 80, endY: 15 },   // 中央 → 右上
+    { startX: 15, startY: 35, endX: 75, endY: 25 },   // 左中 → 右上
+    { startX: 20, startY: 20, endX: 70, endY: 20 },   // 左上 → 右上(水平)
+    { startX: 75, startY: 30, endX: 20, endY: 35 },   // 右中 → 左中(水平)
+    { startX: 30, startY: 15, endX: 35, endY: 50 },   // 左寄り上 → 下
+    { startX: 65, startY: 45, endX: 60, endY: 10 },   // 右寄り下 → 上
+    { startX: 50, startY: 25, endX: 25, endY: 40 },   // 中央 → 左
+    { startX: 25, startY: 30, endX: 70, endY: 18 },   // 左中 → 右上
   ]
   
   const pattern = patterns[index % patterns.length]
   
-  // 1. 大移動 (★35〜55秒かけて移動 - 少しゆっくりに)
+  // 1. 大移動 (35〜55秒かけて移動)
   const journeyDuration = Math.random() * 20 + 35
   const journeyDelay = Math.random() * 10
   
-  // 2. 縦の「ぷかぷか」 (★6〜11秒周期 - さらにゆったり)
+  // 2. 縦の「ぷかぷか」 (6〜11秒周期)
   const bobDuration = Math.random() * 5 + 6
   const bobDelay = Math.random() * 2
   const bobY = Math.random() * 60 + 50 // 50〜110px上下
-  
-  // 3. 回転のゆらぎ (5〜9秒周期で、±25〜60度回転)
+
+  // 3. 回転のゆらぎ (5〜9秒周期で、±10〜25度回転)
   const rotateDuration = Math.random() * 4 + 5
   const rotateDelay = Math.random() * 3
-  const rotateAngle = Math.random() * 35 + 25
+  const rotateAngle = Math.random() * 15 + 10 // 10〜25度
   
-  // 4. 小刻みな横揺れ (★3〜6秒周期 - 少しゆっくりに)
+  // 4. 小刻みな横揺れ (3〜6秒周期)
   const wiggleDuration = Math.random() * 3 + 3
   const wiggleDelay = Math.random() * 1.5
   const wiggleX = Math.random() * 40 + 30 // 30〜70px左右
@@ -142,7 +142,12 @@ const isDimmed = computed(() => isModalOpen.value)
   <div class="main-view">
     <div class="ocean-container" :class="{ dimmed: isDimmed }">
 
-      <div class="waves"></div>
+      <!-- 砂浜と海の境界の波 -->
+      <div class="shore-waves">
+        <div class="wave-layer wave-layer-1"></div>
+        <div class="wave-layer wave-layer-2"></div>
+        <div class="wave-layer wave-layer-3"></div>
+      </div>
 
       <div v-if="isLoading" class="loading-state">
         <div class="wave-icon">🌊</div>
@@ -243,34 +248,32 @@ const isDimmed = computed(() => isModalOpen.value)
   position: relative;
   min-height: calc(100vh - 70px);
   overflow: hidden;
-  
-  /* ★★★ 修正: Flexコンテナ化 ★★★ */
   display: flex;
   flex-direction: column;
 }
 
-/* 海のグラデーション */
+/* 海のグラデーション (水平線視点・空なし) */
 .ocean-container {
   position: relative;
-  /* ★★★ 修正: min-height を削除 ★★★ */
-  /* min-height: calc(100vh - 70px); */ 
-  
-  /* ★★★ 修正: flex: 1 で親の高さに追従 ★★★ */
   flex: 1;
-
+  
+  /* 上から: 水平線→遠い海→中間の海→手前の海→波打ち際→砂浜 */
   background: linear-gradient(
     to bottom,
-    #87CEEB 0%,   /* 空色 */
-    #006994 20%,  /* 水面（濃い） */
-    #005073 50%,  /* 水中（最深部） */
-    #006994 80%,  /* 水面（濃い） */
-    #ADD8E6 100% /* 浅瀬（淡い） */
+    #1E5A7A 0%,      /* 水平線(濃い青) */
+    #2975A0 10%,     /* 遠くの海 */
+    #006994 25%,     /* 遠い海 */
+    #005A82 40%,     /* 中間の海 */
+    #00738F 55%,     /* 手前の海 */
+    #008FA5 68%,     /* 波打ち際手前 */
+    #C2B280 80%,     /* 波打ち際(砂混じり) */
+    #E8D4B0 90%,     /* 砂浜(濡れた部分) */
+    #EDD9B8 95%,     /* 砂浜(やや乾いた部分) */
+    #F2DFC0 100%     /* 砂浜(乾いた部分) */
   );
   transition: filter 0.3s ease;
-  padding: 2rem 1rem;
+  padding: 0;
   overflow: hidden;
-
-  /* ★★★ 追加: 中身(bottles-areaなど)を正しく配置するため ★★★ */
   display: flex;
   flex-direction: column;
 }
@@ -278,42 +281,83 @@ const isDimmed = computed(() => isModalOpen.value)
   filter: brightness(0.6); 
 }
 
-/* 波のアニメーション */
-.waves {
+/* 砂浜と海の境界の波 */
+.shore-waves {
   position: absolute;
-  bottom: 0;
+  bottom: 15%;
   left: 0;
   width: 100%;
-  height: 200px;
+  height: 15%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 3;
 }
-.waves::before,
-.waves::after {
-  content: '';
+
+.wave-layer {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 100px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 100' preserveAspectRatio='none'%3E%3Cpath fill='%23ffffff' d='M 0 50 C 250 100 250 0 500 50 S 750 100 1000 50 L 1000 100 L 0 100 Z' /%3E%3C/svg%3E");
-  background-size: 1000px 100px;
-  background-repeat: repeat-x;
-  animation: wave-scroll 15s linear infinite;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 25%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.18) 75%,
+    rgba(255, 255, 255, 0.08) 85%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
 }
-.waves::before {
-  opacity: 0.1;
-  animation-duration: 10s;
-  animation-direction: reverse;
+
+.wave-layer-1 {
+  animation: tide-flow-1 3.5s ease-in-out infinite;
+  opacity: 0.85;
 }
-.waves::after {
-  opacity: 0.2;
-  animation-duration: 20s;
-  bottom: 10px;
+
+.wave-layer-2 {
+  animation: tide-flow-2 4.5s ease-in-out infinite;
+  opacity: 0.7;
+  animation-delay: -1.5s;
 }
-@keyframes wave-scroll {
-  from { background-position-x: 0; }
-  to { background-position-x: 1000px; }
+
+.wave-layer-3 {
+  animation: tide-flow-3 5.5s ease-in-out infinite;
+  opacity: 0.75;
+  animation-delay: -3s;
+}
+
+@keyframes tide-flow-1 {
+  0%, 100% {
+    transform: translateY(0) scaleY(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateY(-35px) scaleY(1.4);
+    opacity: 0.95;
+  }
+}
+
+@keyframes tide-flow-2 {
+  0%, 100% {
+    transform: translateY(0) scaleY(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-45px) scaleY(1.3);
+    opacity: 0.85;
+  }
+}
+
+@keyframes tide-flow-3 {
+  0%, 100% {
+    transform: translateY(0) scaleY(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-25px) scaleY(1.5);
+    opacity: 0.9;
+  }
 }
 
 /* ローディング・空状態 */
@@ -322,12 +366,10 @@ const isDimmed = computed(() => isModalOpen.value)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* ★★★ 修正: flex: 1 で中央に配置 ★★★ */
   flex: 1;
-  /* height: 50vh; */ /* 削除 */
   color: #fff;
   font-size: 1.2rem;
-  z-index: 1;
+  z-index: 5;
   position: relative;
 }
 .wave-icon {
@@ -350,14 +392,14 @@ const isDimmed = computed(() => isModalOpen.value)
 
 .bottles-area {
   position: relative;
-  /* ★★★ 修正: height -> flex: 1 ★★★ */
-  /* height: 70vh; */
   flex: 1;
-  
   max-width: 1400px;
   margin: 0 auto;
-  /* ★★★ 追加: bottles-area自体が幅を持つように ★★★ */
-  width: 100%; 
+  width: 100%;
+  
+  /* ボトルは海エリア(上部60%)にのみ配置 */
+  padding: 2rem 1rem 0 1rem;
+  z-index: 4;
 }
 
 /* アニメーションの定義 (片道) */
@@ -411,8 +453,7 @@ const isDimmed = computed(() => isModalOpen.value)
 
 /* ボトル画像 (回転) */
 .bottle-image {
-  /* ★ サイズを大きく */
-  width: 220px; 
+  width: 200px; 
   height: auto;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
   transition: transform 0.3s ease, filter 0.3s ease;
@@ -439,18 +480,12 @@ const isDimmed = computed(() => isModalOpen.value)
 }
 
 
-/* ★★★ 改良: タグのデザイン (中央基点) ★★★ */
+/* タグのデザイン (中央基点) */
 .bottle-tags {
   position: absolute;
-  /* ★ .bottle コンテナの中央を基点にする */
   top: 50%;
   left: 50%;
-  /* ★ 基点から手紙の紐あたりまで微調整 */
-  /* translateX(-50%) translateY(-50%) で中央揃えにしつつ、
-     ピクセルで右下にずらす */
-  /* ★★★ 改良: translateY の値を増やして全体を下に移動 ★★★ */
-  /* 以前: translateY(calc(-50% + 15px)) */
-  transform: translateX(calc(-50% + 25px)) translateY(calc(-50% + 60px)) rotate(8deg); /* Y方向のオフセットを +15px -> +25px に変更 */
+  transform: translateX(calc(-50% + 25px)) translateY(calc(-50% + 60px)) rotate(8deg);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -463,25 +498,19 @@ const isDimmed = computed(() => isModalOpen.value)
 .bottle-tags::before {
   content: '';
   position: absolute;
-  /* ★ タグの上端左側に紐の「下端」が来るように調整 */
-  top: -30px;      /* タグの上端に合わせる */
-  left: 0px;   /* タグの少し左に起点 */
-  
-  /* ★ 紐自体の回転起点 */
+  top: -30px;
+  left: 0px;
   transform-origin: bottom center; 
-  
-  /* ★★★ 改良: translateYを削除し、rotateのみにする ★★★ */
-  /* これにより、紐の下端が top:0, left:5px の位置に来る */
   transform: rotate(-15deg); 
-  
   width: 2px;
-  height: 35px; /* 紐の長さ */
+  height: 50px;
   background: #902821c3;
   opacity: 0.8;
 }
+
 /* 白いタグ本体 */
 .simple-tag {
-  background: rgba(255, 255, 255, 0.85); /* 半透明 */
+  background: rgba(255, 255, 255, 0.85);
   padding: 3px 7px;
   border-radius: 4px;
   font-size: 0.7rem;
@@ -501,8 +530,6 @@ const isDimmed = computed(() => isModalOpen.value)
   border-radius: 4px;
   padding: 2px 4px;
 }
-/* --- タグデザインここまで --- */
-
 
 /* 固定ボタン */
 .floating-toggle {
@@ -625,12 +652,10 @@ const isDimmed = computed(() => isModalOpen.value)
     padding: 3px 6px; 
   }
   
-  /* ★ スマホ用のタグ位置調整 */
+  /* スマホ用のタグ位置調整 */
   .bottle-tags {
-    /* (125px幅の画像に合わせる) */
     top: 50%;
     left: 50%;
-    /* 中央から右下に微調整 */
     transform: translateX(calc(-50% + 15px)) translateY(calc(-50% + 10px)) rotate(8deg); 
   }
 }
