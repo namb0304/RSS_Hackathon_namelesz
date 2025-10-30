@@ -13,44 +13,41 @@ const isModalOpen = ref(false)
 const selectedId = ref(null)
 const router = useRouter()
 
-// -----------------------------------------------------------------
-// ★★★ アニメーション調整の「司令塔」 ★★★
-// -----------------------------------------------------------------
+// ★ 物理シミュレーション用の状態
+const bottlePositions = ref([])
+let animationFrameId = null
+
+// ボトルの初期スタイル生成
 const generateBottleStyle = (index) => {
-  // 10種類の多様な軌道パターン (水平線視点: Y値は海エリア0-60%に制限)
   const patterns = [
-    { startX: 10, startY: 10, endX: 75, endY: 45 },   // 左上 → 右中
-    { startX: 70, startY: 5, endX: 15, endY: 50 },    // 右上 → 左中
-    { startX: 40, startY: 40, endX: 80, endY: 15 },   // 中央 → 右上
-    { startX: 15, startY: 35, endX: 75, endY: 25 },   // 左中 → 右上
-    { startX: 20, startY: 20, endX: 70, endY: 20 },   // 左上 → 右上(水平)
-    { startX: 75, startY: 30, endX: 20, endY: 35 },   // 右中 → 左中(水平)
-    { startX: 30, startY: 15, endX: 35, endY: 50 },   // 左寄り上 → 下
-    { startX: 65, startY: 45, endX: 60, endY: 10 },   // 右寄り下 → 上
-    { startX: 50, startY: 25, endX: 25, endY: 40 },   // 中央 → 左
-    { startX: 25, startY: 30, endX: 70, endY: 18 },   // 左中 → 右上
+    { startX: 10, startY: 12, endX: 75, endY: 48 },
+    { startX: 70, startY: 8, endX: 15, endY: 52 },
+    { startX: 40, startY: 42, endX: 80, endY: 18 },
+    { startX: 15, startY: 38, endX: 75, endY: 28 },
+    { startX: 20, startY: 22, endX: 70, endY: 24 },
+    { startX: 75, startY: 32, endX: 20, endY: 38 },
+    { startX: 30, startY: 18, endX: 35, endY: 52 },
+    { startX: 65, startY: 48, endX: 60, endY: 12 },
+    { startX: 50, startY: 28, endX: 25, endY: 42 },
+    { startX: 25, startY: 32, endX: 70, endY: 20 },
   ]
   
   const pattern = patterns[index % patterns.length]
   
-  // 1. 大移動 (35〜55秒かけて移動)
   const journeyDuration = Math.random() * 20 + 35
   const journeyDelay = Math.random() * 10
   
-  // 2. 縦の「ぷかぷか」 (6〜11秒周期)
   const bobDuration = Math.random() * 5 + 6
   const bobDelay = Math.random() * 2
-  const bobY = Math.random() * 60 + 50 // 50〜110px上下
+  const bobY = Math.random() * 60 + 50
 
-  // 3. 回転のゆらぎ (5〜9秒周期で、±10〜25度回転)
   const rotateDuration = Math.random() * 4 + 5
   const rotateDelay = Math.random() * 3
-  const rotateAngle = Math.random() * 15 + 10 // 10〜25度
+  const rotateAngle = Math.random() * 15 + 10
   
-  // 4. 小刻みな横揺れ (3〜6秒周期)
   const wiggleDuration = Math.random() * 3 + 3
   const wiggleDelay = Math.random() * 1.5
-  const wiggleX = Math.random() * 40 + 30 // 30〜70px左右
+  const wiggleX = Math.random() * 40 + 30
   
   return {
     '--start-x': `${pattern.startX}%`,
@@ -75,6 +72,67 @@ const generateBottleStyle = (index) => {
   }
 }
 
+// ★ ボトル同士の反発処理
+const updateBottlePhysics = () => {
+  const MIN_DISTANCE = 350 // この距離より近いと反発開始(px)
+  const REPEL_FORCE = 1  // 反発の強さ
+  
+  bottlePositions.value.forEach((bottle, i) => {
+    if (!bottle.element) return
+    
+    let forceX = 0
+    let forceY = 0
+    
+    // 他のボトルとの距離をチェック
+    bottlePositions.value.forEach((other, j) => {
+      if (i === j || !other.element) return
+      
+      const dx = bottle.x - other.x
+      const dy = bottle.y - other.y
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      
+      // 近すぎたら反発力を計算
+      if (distance < MIN_DISTANCE && distance > 0) {
+        const force = (MIN_DISTANCE - distance) / MIN_DISTANCE
+        forceX += (dx / distance) * force * REPEL_FORCE
+        forceY += (dy / distance) * force * REPEL_FORCE
+      }
+    })
+    
+    // 反発力を適用
+    bottle.x += forceX
+    bottle.y += forceY
+    
+    // 画面外に出ないように制限
+    bottle.x = Math.max(5, Math.min(85, bottle.x))
+    bottle.y = Math.max(5, Math.min(55, bottle.y))
+    
+    // DOMに反映
+    bottle.element.style.setProperty('--repel-x', `${forceX * 10}px`)
+    bottle.element.style.setProperty('--repel-y', `${forceY * 10}px`)
+  })
+  
+  animationFrameId = requestAnimationFrame(updateBottlePhysics)
+}
+
+// ボトルの位置を取得・更新
+const initBottlePhysics = () => {
+  const elements = document.querySelectorAll('.bottle-wrapper')
+  bottlePositions.value = Array.from(elements).map((el, index) => {
+    const rect = el.getBoundingClientRect()
+    const containerRect = el.parentElement.getBoundingClientRect()
+    return {
+      element: el,
+      x: ((rect.left - containerRect.left) / containerRect.width) * 100,
+      y: ((rect.top - containerRect.top) / containerRect.height) * 100,
+    }
+  })
+  
+  // 物理シミュレーション開始
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  updateBottlePhysics()
+}
+
 // ランダムに4件選ぶ
 const selectRandomBottles = () => {
   if (!allPosts.value || allPosts.value.length === 0) {
@@ -95,6 +153,11 @@ const fetchPosts = async () => {
     const posts = await getThanksPosts()
     allPosts.value = posts
     selectRandomBottles()
+    
+    // DOMが更新されるのを待ってから物理初期化
+    setTimeout(() => {
+      initBottlePhysics()
+    }, 100)
   } catch (err) {
     console.error('投稿の取得に失敗:', err)
   } finally {
@@ -130,12 +193,19 @@ const handleBottleClick = (bottle) => {
   isModalOpen.value = true
 }
 
-// カードクリック (グリッド内で)
+// カードクリック
 const onCardClicked = (postId) => {
   selectedId.value = postId
 }
 
 const isDimmed = computed(() => isModalOpen.value)
+
+// クリーンアップ
+onMounted(() => {
+  return () => {
+    if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  }
+})
 </script>
 
 <template>
@@ -150,7 +220,7 @@ const isDimmed = computed(() => isModalOpen.value)
       </div>
 
       <div v-if="isLoading" class="loading-state">
-        <div class="wave-icon">🌊</div>
+        <div class="wave-icon">🌊🌊🌊</div>
         <p>ボトルメールを探しています...</p>
       </div>
 
@@ -184,6 +254,16 @@ const isDimmed = computed(() => isModalOpen.value)
         </div>
       </div>
     </div>
+
+    <!-- 左下の更新ボタン -->
+    <button
+      class="refresh-btn"
+      @click="fetchPosts"
+      title="新しいボトルを探しに行く"
+      aria-label="新しいボトルを探しに行く"
+    >
+      新しくボトルを探しに行く
+    </button>
 
     <button
       v-if="!isModalOpen"
@@ -420,7 +500,7 @@ const isDimmed = computed(() => isModalOpen.value)
   100% { transform: rotate(calc(var(--rotate-angle) * 0.5)); }
 }
 
-/* ボトルラッパー (移動 + 上下動) */
+/* ボトルラッパー (移動 + 上下動 + 反発) */
 .bottle-wrapper {
   position: absolute;
   cursor: pointer;
@@ -436,6 +516,13 @@ const isDimmed = computed(() => isModalOpen.value)
   animation-delay: 
     var(--journey-delay),
     var(--bob-delay);
+  
+  /* ★ 反発用のオフセット */
+  transform: translate(
+    calc(var(--repel-x, 0px)), 
+    calc(var(--repel-y, 0px))
+  );
+  transition: transform 0.3s ease-out;
 }
 
 /* .bottle コンテナ (タグの親 + 横揺れ) */
@@ -483,12 +570,12 @@ const isDimmed = computed(() => isModalOpen.value)
 /* タグのデザイン (中央基点) */
 .bottle-tags {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 54%;
+  left: 57%;
   transform: translateX(calc(-50% + 25px)) translateY(calc(-50% + 60px)) rotate(8deg);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   align-items: flex-start;
   z-index: 2;
   pointer-events: none;
@@ -510,25 +597,28 @@ const isDimmed = computed(() => isModalOpen.value)
 
 /* 白いタグ本体 */
 .simple-tag {
-  background: rgba(255, 255, 255, 0.85);
-  padding: 3px 7px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 5px 10px;
   border-radius: 4px;
-  font-size: 0.7rem;
-  color: #4E4E4E;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+  color: #2C2C2C;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  font-weight: 500;
+  font-family: "游明朝", "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "HG明朝E", "MS P明朝", "MS PMincho", serif;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   white-space: nowrap;
+  letter-spacing: 0.05em;
 }
 
 /* 残り件数 */
 .tag-more {
-  font-size: 0.7rem;
-  color: #4E4E4E;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.75);
+  font-size: 0.9rem;
+  color: #2C2C2C;
+  font-weight: 500;
+  font-family: "游明朝", "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "HG明朝E", "MS P明朝", "MS PMincho", serif;
+  background: rgba(255, 255, 255, 0.85);
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: 3px 6px;
 }
 
 /* 固定ボタン */
@@ -570,6 +660,31 @@ const isDimmed = computed(() => isModalOpen.value)
 }
 .floating-toggle:hover .tooltip { 
   display: block; 
+}
+
+/* 左下の更新ボタン */
+.refresh-btn {
+  position: fixed;
+  bottom: 1.8rem;
+  left: 1.8rem;
+  padding: 14px 28px;
+  border-radius: 999px;
+  background: #FF8C42;
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+  z-index: 110;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.refresh-btn:hover {
+  transform: scale(1.08);
+  background: #FF6F20;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
 /* モーダル */
@@ -657,6 +772,14 @@ const isDimmed = computed(() => isModalOpen.value)
     top: 50%;
     left: 50%;
     transform: translateX(calc(-50% + 15px)) translateY(calc(-50% + 10px)) rotate(8deg); 
+  }
+  
+  /* スマホでの更新ボタン */
+  .refresh-btn {
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    bottom: 1.5rem;
+    left: 1.5rem;
   }
 }
 </style>
