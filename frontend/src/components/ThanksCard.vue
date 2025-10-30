@@ -4,13 +4,20 @@ import { getUserProfile, likePost, saveAsTask, hidePost } from '../firebaseServi
 import { user } from '../store/user'
 import { useRouter } from 'vue-router'
 
-// 画像アセットのインポート
 import scrollBackground from '../assets/thanks-card.png'
 
 const props = defineProps({
   post: {
     type: Object,
     required: true
+  },
+  bottleColor: {
+    type: Object,
+    default: null
+  },
+  isSelected: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -36,7 +43,6 @@ onMounted(async () => {
   }
 })
 
-// timestamp formatting (Firestore Timestamp expected)
 const formatTimestamp = (timestamp) => {
   if (!timestamp || !timestamp.toDate) return '---';
   const date = timestamp.toDate();
@@ -55,13 +61,11 @@ const formatTimestamp = (timestamp) => {
 
 const avatarInitial = computed(() => (authorName.value && authorName.value.length > 0) ? authorName.value.charAt(0).toUpperCase() : '無')
 
-// 連鎖マップへ移動（誰でも可能）
 const goToChain = () => {
   if (!props.post || !props.post.id) return
   router.push({ name: 'chain', params: { id: props.post.id } })
 }
 
-// いいね: 1人10回まで
 const myLikeCount = computed(() => {
   if (!user.value || !props.post.likesMap) return 0;
   return props.post.likesMap[user.value.uid] || 0;
@@ -97,7 +101,6 @@ const handleLike = async () => {
   }
 }
 
-// Task 保存（ログイン必須）
 const handleSaveTask = async () => {
   if (!user.value) {
     router.push('/login')
@@ -125,7 +128,6 @@ const handleSaveTask = async () => {
   }
 }
 
-// 非表示（ログイン必須）
 const handleHide = async () => {
   if (!user.value) {
     router.push('/login')
@@ -144,15 +146,34 @@ const handleHide = async () => {
   }
 }
 
-// Vue 3.2+ <script setup> で CSS 変数をバインド
-const cardStyle = computed(() => ({
-  '--scroll-bg': `url(${scrollBackground})`
-}))
+// ★ カードのスタイルに色情報を追加
+const cardStyle = computed(() => {
+  const style = {
+    '--scroll-bg': `url(${scrollBackground})`
+  }
+  
+  // ★ ボトルの色がある場合、枠線と影を追加
+  if (props.bottleColor) {
+    style['--card-border-color'] = props.bottleColor.border
+    style['--card-shadow'] = props.bottleColor.shadow
+  }
+  
+  return style
+})
 
 </script>
 
 <template>
-  <div class="card thanks-card" role="article" :style="cardStyle">
+  <div 
+    class="card thanks-card" 
+    role="article" 
+    :style="cardStyle"
+    :class="{ 
+      'with-color': bottleColor,
+      'is-selected': isSelected,
+      'is-not-selected': bottleColor && !isSelected
+    }"
+  >
     <div class="card-header">
       <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
         <template v-if="!authorAvatar">{{ avatarInitial }}</template>
@@ -169,7 +190,13 @@ const cardStyle = computed(() => ({
         "{{ props.post.feeling }}"
       </div>
       <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
-        <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
+        <span 
+          v-for="tag in props.post.tags" 
+          :key="tag" 
+          class="tag"
+        >
+          #{{ tag }}
+        </span>
       </div>
     </div>
 
@@ -200,17 +227,13 @@ const cardStyle = computed(() => ({
 </template>
 
 <style scoped>
-/* --- 巻物カードスタイル（縦に引き伸ばし、コンテンツを巻物内に配置） --- */
-
 .card.thanks-card {
-  /* 背景画像の設定 */
   background-image: var(--scroll-bg); 
-  background-size: 104% 80%; 
+  background-size: 95% 70%; 
   background-repeat: no-repeat;
   background-position: center;
   background-color: transparent;
   
-  /* 枠線なし */
   border-radius: 0; 
   box-shadow: none;
   border: none;
@@ -220,17 +243,68 @@ const cardStyle = computed(() => ({
   display: flex;
   flex-direction: column;
 
-  /* ★ 修正: テキストを下げるため、上パディングを 70px -> 90px に変更 */
   padding: 130px 45px 50px 100px;
 
   color: #4b3832c6;
   image-rendering: -webkit-optimize-contrast;
   
-  /* ★ アスペクト比を縦長に調整（横:縦 = 3:4 程度） */
   aspect-ratio: 5 / 4;
   width: 60%;
-  /* ★ 修正: max-width を 450px から 350px に変更して画像を小さくする */
-  max-width: 200px; 
+  max-width: 200px;
+  
+  /* ★ デフォルトの状態（色なし） */
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* ★ 色が適用された場合の枠線と影 */
+.card.thanks-card.with-color {
+  outline: 4px solid var(--card-border-color);
+  outline-offset: -8px;
+  box-shadow: 
+    0 0 20px var(--card-shadow),
+    0 0 40px var(--card-shadow),
+    inset 0 0 30px rgba(255, 255, 255, 0.1);
+  transition: opacity 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card.thanks-card.with-color::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0;
+  pointer-events: none;
+  box-shadow: 
+    inset 0 0 20px var(--card-shadow),
+    inset 0 0 40px var(--card-shadow);
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+/* ★ 選択されていないカードは透過率を上げて目立たなくする */
+.card.thanks-card.is-not-selected {
+  opacity: 0.25 !important;
+  outline-width: 2px !important;
+  box-shadow: 
+    0 0 5px var(--card-shadow) !important,
+    0 0 10px var(--card-shadow) !important;
+}
+
+.card.thanks-card.is-not-selected::before {
+  opacity: 0.2 !important;
+}
+
+/* ★ 選択されたカードははっきり表示 */
+.card.thanks-card.is-selected {
+  opacity: 1 !important;
+  outline-width: 4px !important;
+}
+
+.card.thanks-card.is-selected::before {
+  opacity: 0.8 !important;
 }
 
 .card-header {
@@ -238,6 +312,8 @@ const cardStyle = computed(() => ({
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  position: relative;
+  z-index: 1;
 }
 
 .avatar {
@@ -260,7 +336,7 @@ const cardStyle = computed(() => ({
 
 .user-info {
   flex-grow: 1;
-  min-width: 0; /* テキストが省略されるように */
+  min-width: 0;
 }
 
 .name {
@@ -284,7 +360,9 @@ const cardStyle = computed(() => ({
   padding: 0; 
   margin-bottom: 20px; 
   flex-grow: 1;
-  overflow-y: auto; /* 内容が多い場合にスクロール可能に */
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .card-body p {
@@ -319,9 +397,9 @@ const cardStyle = computed(() => ({
   font-size: 0.85rem;
   border: 1px solid #C1A78A;
   white-space: nowrap;
+  font-weight: 500;
 }
 
-/* ボタンエリア */
 .card-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -329,9 +407,9 @@ const cardStyle = computed(() => ({
   padding: 0;
   margin-top: auto; 
   
-  /* ★ 修正: 他の要素に影響を与えず、ボタン群だけを下に移動させます */
-  /* (正の値を指定すると下に移動します。80pxで試します) */
   transform: translateY(75px);
+  position: relative;
+  z-index: 1;
 } 
 
 .action-btn {
@@ -415,10 +493,8 @@ const cardStyle = computed(() => ({
   transform: none;
 }
 
-/* スマホ対応 */
 @media (max-width: 768px) {
   .card.thanks-card {
-    /* ★ 修正: テキストを下げるため、上パディングを 60px -> 80px に変更 */
     padding: 80px 40px 40px 80px;
     max-width: 100%;
   }
@@ -426,7 +502,6 @@ const cardStyle = computed(() => ({
   .card-actions {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
-    /* ★ 修正: スマホ表示でも同様に下にずらす */
     transform: translateY(20px); 
   }
 
