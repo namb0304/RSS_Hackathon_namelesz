@@ -285,10 +285,10 @@ onMounted(() => {
     <button
       class="refresh-btn"
       @click="fetchPosts"
-      title="別のボトルを探す"
-      aria-label="別のボトルを探す"
+      title="別のボトルメールを探す"
+      aria-label="別のボトルメールを探す"
     >
-      別のボトルを探す
+      別のボトルメールを探す
     </button>
 
     <button
