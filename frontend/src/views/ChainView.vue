@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPostChain, getUserProfile, likePost } from '../firebaseService'
+import { getPostChain, getUserProfile } from '../firebaseService'
 import { user } from '../store/user'
 import Panzoom from 'panzoom'
 import ChainPostList from '../components/ChainPostList.vue'
@@ -18,63 +18,6 @@ const mapContainer = ref(null)
 const mapViewport = ref(null)
 let panzoomInstance = null
 const isPostListOpen = ref(false)
-
-// 選択中の投稿を取得
-const selectedPost = computed(() => {
-  return chainPosts.value[highlightedPostIndex.value] || null
-})
-
-// いいね機能
-const handleLike = async () => {
-  if (!selectedPost.value) return
-
-  if (!user.value) {
-    alert("いいねするにはログインが必要です。")
-    return
-  }
-
-  const post = selectedPost.value
-  const myLikeCount = getMyLikeCount(post)
-  if (myLikeCount >= 10) {
-    alert("いいねは一投稿につき10回までです！")
-    return
-  }
-
-  try {
-    if (post.likeCount === undefined) post.likeCount = 0
-    post.likeCount++
-    if (!post.likesMap) post.likesMap = {}
-    if (!post.likesMap[user.value.uid]) post.likesMap[user.value.uid] = 0
-    post.likesMap[user.value.uid]++
-    await likePost(post.id, user.value.uid)
-  } catch (error) {
-    console.error("いいね処理中にエラー:", error)
-    post.likeCount--
-    post.likesMap[user.value.uid]--
-    alert("いいねに失敗しました。")
-  }
-}
-
-// 返信を保管（下書き保存）
-const handleDraft = () => {
-  if (!selectedPost.value) return
-  // TODO: 後で実装する関数を呼び出す
-  console.log('返信を保管:', selectedPost.value.id)
-  alert('返信を保管しました（仮実装）')
-}
-
-// 投稿を非表示
-const handleHide = () => {
-  if (!selectedPost.value) return
-  // TODO: 後で実装する関数を呼び出す
-  console.log('非表示:', selectedPost.value.id)
-  alert('この投稿を非表示にしました（仮実装）')
-}
-
-const getMyLikeCount = (post) => {
-  if (!user.value || !post.likesMap) return 0
-  return post.likesMap[user.value.uid] || 0
-}
 
 // 投稿チェーンを読み込む
 onMounted(async () => {
@@ -499,7 +442,7 @@ const handleBack = () => {
               :x2="`${line.x2}%`"
               :y2="line.y2 + 150"
               class="tree-connector-line"
-   :class="{
+              :class="{
                 'is-family-connector':
                   (line.id === `${highlightedFamilyIds.parent}-${highlightedFamilyIds.self}`) ||
                   (highlightedFamilyIds.children.some(childId => line.id === `${highlightedFamilyIds.self}-${childId}`))
@@ -566,32 +509,6 @@ const handleBack = () => {
               <div class="stat-label">総いいね数</div>
               <div class="stat-value">{{ chainPosts.reduce((sum, post) => sum + (post.likeCount || 0), 0) }}</div>
             </div>
-          </div>
-        </div>
-
-        <!-- アクションボタンオーバーレイ -->
-        <div v-if="selectedPost" class="action-overlay">
-          <div class="action-header">
-            <span class="action-target-name">{{ getAuthorName(selectedPost) }}</span>
-            <span class="action-target-text">{{ selectedPost.text.substring(0, 30) }}...</span>
-          </div>
-
-          <div class="action-buttons-container">
-            <button @click="handleLike" class="action-btn like-btn">
-              <span class="btn-icon">❤️</span>
-              <span class="btn-text">いいね</span>
-              <span class="btn-count">{{ selectedPost.likeCount || 0 }}</span>
-            </button>
-
-            <button @click="handleDraft" class="action-btn draft-btn">
-              <span class="btn-icon">📦</span>
-              <span class="btn-text">保管</span>
-            </button>
-
-            <button @click="handleHide" class="action-btn hide-btn">
-              <span class="btn-icon">🌊</span>
-              <span class="btn-text">流す</span>
-            </button>
           </div>
         </div>
       </div>
@@ -879,7 +796,7 @@ const handleBack = () => {
 
 .stats-overlay {
   position: absolute;
-  top: 20px;
+  bottom: 20px;
   right: 20px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
@@ -891,113 +808,6 @@ const handleBack = () => {
   flex-direction: column;
   gap: 12px;
   min-width: 180px;
-}
-
-/* アクションボタンオーバーレイ */
-.action-overlay {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  min-width: 200px;
-}
-
-.action-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #eee;
-}
-
-.action-target-name {
-  font-size: 0.85rem;
-  font-weight: bold;
-  color: #333;
-}
-
-.action-target-text {
-  font-size: 0.75rem;
-  color: #666;
-  font-style: italic;
-}
-
-.action-buttons-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 10px 8px;
-  border: 2px solid;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: serif;
-  font-weight: 500;
-  min-height: 70px;
-}
-
-.btn-icon {
-  font-size: 1.5rem;
-}
-
-.btn-text {
-  font-size: 0.75rem;
-}
-
-.btn-count {
-  font-size: 0.7rem;
-  font-weight: bold;
-  color: inherit;
-}
-
-.like-btn {
-  background: linear-gradient(to bottom, #FFE5E5 0%, #FFD0D0 100%);
-  border-color: #FF6B6B;
-  color: #C85A54;
-}
-
-.like-btn:hover {
-  background: linear-gradient(to bottom, #FFF0F0 0%, #FFE5E5 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(200, 90, 84, 0.2);
-}
-
-.draft-btn {
-  background: linear-gradient(to bottom, #F5E6D3 0%, #E8D4B8 100%);
-  border-color: #8B7355;
-  color: #5C4A3A;
-}
-
-.draft-btn:hover {
-  background: linear-gradient(to bottom, #FFF8EC 0%, #F5E6D3 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(139, 115, 85, 0.2);
-}
-
-.hide-btn {
-  background: linear-gradient(to bottom, #D4E8F0 0%, #B8D8E8 100%);
-  border-color: #5B8FA3;
-  color: #2C5F75;
-}
-
-.hide-btn:hover {
-  background: linear-gradient(to bottom, #E0F0F8 0%, #D0E8F0 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(91, 143, 163, 0.2);
 }
 
 .back-button {

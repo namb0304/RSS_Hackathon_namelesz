@@ -24,7 +24,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:isOpen', 'selectPost', 'update:height'])
+const emit = defineEmits(['update:isOpen', 'selectPost'])
 
 // ポップアップのコンテンツ要素への参照
 const popupContent = ref(null)
@@ -58,7 +58,6 @@ const onResize = (event) => {
   newHeight = Math.max(20, Math.min(95, newHeight))
 
   popupHeight.value = newHeight
-  emit('update:height', newHeight) // 親に高さを通知
 }
 
 const stopResize = () => {
@@ -290,27 +289,46 @@ const handlePostClick = (index) => {
           <div class="depth-line"></div>
         </div>
 
-        <div
-          class="thread-item thanks-post"
-          :class="{ highlight: highlightedPostIndex === 0 }"
-          @click="handlePostClick(0)"
-        >
-          <img :src="letterImage" class="letter-background" alt="letter" />
-          <div class="thread-content">
-            <div class="thread-text">
-              <div class="thread-header">
-                <div class="thread-name">{{ getAuthorName(rootPost) }}</div>
-                <div class="thread-time">{{ formatTimestamp(rootPost.timestamp) }}</div>
-              </div>
-              <div class="thread-body">
-                {{ rootPost.text }}
-                <div v-if="rootPost.feeling" class="thread-feeling">
-                  "{{ rootPost.feeling }}"
+        <div class="post-wrapper">
+          <div
+            class="thread-item thanks-post"
+            :class="{ highlight: highlightedPostIndex === 0 }"
+            @click="handlePostClick(0)"
+          >
+            <img :src="letterImage" class="letter-background" alt="letter" />
+            <div class="thread-content">
+              <div class="thread-text">
+                <div class="thread-header">
+                  <div class="thread-name">{{ getAuthorName(rootPost) }}</div>
+                  <div class="thread-time">{{ formatTimestamp(rootPost.timestamp) }}</div>
                 </div>
-                <div v-if="rootPost.tags && rootPost.tags.length > 0" class="thread-tags">
-                  <span v-for="tag in rootPost.tags" :key="tag" class="tag">#{{ tag }}</span>
+                <div class="thread-body">
+                  {{ rootPost.text }}
+                  <div v-if="rootPost.feeling" class="thread-feeling">
+                    "{{ rootPost.feeling }}"
+                  </div>
+                  <div v-if="rootPost.tags && rootPost.tags.length > 0" class="thread-tags">
+                    <span v-for="tag in rootPost.tags" :key="tag" class="tag">#{{ tag }}</span>
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- 手紙の下に配置されるアクションボタン -->
+          <div class="thread-actions-below">
+            <button @click="handleLike(rootPost, $event)" class="like-button seal-style">
+              <span class="seal-wax">❤️</span>
+              <span class="seal-count">{{ rootPost.likeCount || 0 }}</span>
+            </button>
+
+            <div class="action-buttons">
+              <button @click="handleDraft(rootPost, $event)" class="draft-button">
+                <span>ボトルを保管</span>
+              </button>
+              <button @click="handleHide(rootPost, $event)" class="hide-button">
+                <span>遠くに流す</span>
+              </button>
             </div>
           </div>
         </div>
@@ -334,27 +352,48 @@ const handlePostClick = (index) => {
           <div
             v-for="post in posts"
             :key="post.id"
-            class="thread-item next-action"
-            :class="{ highlight: highlightedPostIndex === post.originalIndex }"
-            :style="{ borderLeftColor: getColorByDepth(post.depth) }"
-            @click="handlePostClick(post.originalIndex)"
+            class="post-wrapper"
           >
-            <img :src="letterImage" class="letter-background" alt="letter" />
-            <div class="thread-content">
-              <div class="thread-text">
-                <div class="thread-header">
-                  <div class="thread-name">{{ getAuthorName(post) }}</div>
-                  <div class="thread-time">{{ formatTimestamp(post.timestamp) }}</div>
-                </div>
-                <div class="thread-body">
-                  {{ post.text }}
-                  <div v-if="post.feeling" class="thread-feeling">
-                    "{{ post.feeling }}"
+            <div
+              class="thread-item next-action"
+              :class="{ highlight: highlightedPostIndex === post.originalIndex }"
+              :style="{ borderLeftColor: getColorByDepth(post.depth) }"
+              @click="handlePostClick(post.originalIndex)"
+            >
+              <img :src="letterImage" class="letter-background" alt="letter" />
+              <div class="thread-content">
+                <div class="thread-text">
+                  <div class="thread-header">
+                    <div class="thread-name">{{ getAuthorName(post) }}</div>
+                    <div class="thread-time">{{ formatTimestamp(post.timestamp) }}</div>
                   </div>
-                  <div v-if="post.tags && post.tags.length > 0" class="thread-tags">
-                    <span v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</span>
+                  <div class="thread-body">
+                    {{ post.text }}
+                    <div v-if="post.feeling" class="thread-feeling">
+                      "{{ post.feeling }}"
+                    </div>
+                    <div v-if="post.tags && post.tags.length > 0" class="thread-tags">
+                      <span v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</span>
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- 手紙の下に配置されるアクションボタン -->
+            <div class="thread-actions-below">
+              <button @click="handleLike(post, $event)" class="like-button seal-style">
+                <span class="seal-wax">❤️</span>
+                <span class="seal-count">{{ post.likeCount || 0 }}</span>
+              </button>
+
+              <div class="action-buttons">
+                <button @click="handleDraft(post, $event)" class="draft-button">
+                  <span>ボトルを保管</span>
+                </button>
+                <button @click="handleHide(post, $event)" class="hide-button">
+                  <span>遠くに流す</span>
+                </button>
               </div>
             </div>
           </div>
@@ -443,7 +482,7 @@ const handlePostClick = (index) => {
   transform: translateY(-50%);
   display: flex;
   gap: 12px;
-  align-items: center;
+align-items: center;
 }
 
 .header-stat {
@@ -618,6 +657,15 @@ const handlePostClick = (index) => {
   margin-right: auto;
 }
 
+/* 投稿とボタンのラッパー */
+.post-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
 /* オーバーレイ背景 */
 .popup-overlay {
   position: fixed;
@@ -767,5 +815,212 @@ const handlePostClick = (index) => {
   font-style: italic;
   border: none;
   position: relative;
+}
+
+/* 手紙の下に配置されるアクションボタン - 木製の机モチーフ */
+.thread-actions-below {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+  padding: 16px 24px;
+  background:
+    linear-gradient(180deg,
+      rgba(92, 74, 58, 0.95) 0%,
+      rgba(76, 60, 46, 0.98) 50%,
+      rgba(60, 47, 35, 1) 100%
+    );
+  border-radius: 8px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+  border: 1px solid rgba(60, 47, 35, 0.8);
+}
+
+/* 木目テクスチャのオーバーレイ */
+.thread-actions-below::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.05) 2px,
+      rgba(0, 0, 0, 0.05) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(139, 115, 85, 0.1) 0%,
+      rgba(92, 74, 58, 0.1) 10%,
+      rgba(76, 60, 46, 0.1) 20%,
+      rgba(139, 115, 85, 0.1) 30%
+    );
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* 木の節の装飾 */
+.thread-actions-below::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 20px;
+  width: 30px;
+  height: 20px;
+  background: radial-gradient(ellipse at center,
+    rgba(0, 0, 0, 0.15) 0%,
+    rgba(0, 0, 0, 0.08) 40%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 封蝋風いいねボタン */
+.like-button.seal-style {
+  background: radial-gradient(circle, #C85A54 0%, #A84840 100%);
+  border: none;
+  padding: 6px 12px;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.like-button.seal-style::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.like-button.seal-style:hover {
+  background: radial-gradient(circle, #D86A64 0%, #B85850 100%);
+  transform: scale(1.05);
+}
+
+.seal-wax {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.seal-count {
+  font-size: 0.7rem;
+  font-weight: bold;
+  font-family: serif;
+}
+
+/* アクションボタンコンテナ */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+  z-index: 10;
+  position: relative;
+}
+
+/* ボトルを保管ボタン */
+.draft-button {
+  background: linear-gradient(to bottom, #F5E6D3 0%, #E8D4B8 100%);
+  border: 2px dashed #8B7355;
+  color: #5C4A3A;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.draft-button:hover {
+  background: linear-gradient(to bottom, #FFF8EC 0%, #F5E6D3 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* 遠くに流すボタン */
+.hide-button {
+  background: linear-gradient(to bottom, #D4E8F0 0%, #B8D8E8 100%);
+  border: 2px solid #5B8FA3;
+  color: #2C5F75;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.hide-button:hover {
+  background: linear-gradient(to bottom, #E0F0F8 0%, #D0E8F0 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.button-icon {
+  font-size: 0.9rem;
+}
+
+.post-type-badge {
+  border-radius: 16px;
+  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  color: white;
+  font-weight: bold;
+  font-size: 0.8em;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.thanks-badge {
+  background-color: #FF8C42;
+}
+
+.badge-icon {
+  margin-right: 4px;
 }
 </style>
