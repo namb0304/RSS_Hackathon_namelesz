@@ -32,13 +32,6 @@ onMounted(() => {
 
   <PostFormModal v-if="isPostFormModalOpen" />
 
-  <button
-    v-if="showFloatingButton"
-    @click="isPostFormModalOpen = true"
-    class="floating-post-button"
-  >
-    +
-  </button>
 </template>
 
 <style>
@@ -59,28 +52,4 @@ main {
   padding-top: 70px;
 }
 
-.floating-post-button {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background-color: #ee965fff;
-  color: white;
-  border: none;
-  font-size: 2.7rem;
-  font-weight: bold;
-  box-shadow: 0 4px 15px rgba(93, 90, 90, 1);
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: all 0.2s;
-  z-index: 900;
-}
-.floating-post-button:hover {
-  filter: brightness(1.1);
-  transform: scale(1.05);
-}
 </style>

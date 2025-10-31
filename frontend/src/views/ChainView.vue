@@ -1,10 +1,12 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPostChain, getUserProfile } from '../firebaseService'
+import { getPostChain, getUserProfile, likePost } from '../firebaseService'
 import { user } from '../store/user'
 import Panzoom from 'panzoom'
 import ChainPostList from '../components/ChainPostList.vue'
+import nodeImage from '../assets/node-image.png'
+import flagImage from '../assets/flag.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,13 +19,80 @@ const mapViewport = ref(null)
 let panzoomInstance = null
 const isPostListOpen = ref(false)
 
+// 選択中の投稿を取得
+const selectedPost = computed(() => {
+  return chainPosts.value[highlightedPostIndex.value] || null
+})
+
+// いいね機能
+const handleLike = async () => {
+  if (!selectedPost.value) return
+
+  if (!user.value) {
+    alert("いいねするにはログインが必要です。")
+    return
+  }
+
+  const post = selectedPost.value
+  const myLikeCount = getMyLikeCount(post)
+  if (myLikeCount >= 10) {
+    alert("いいねは一投稿につき10回までです！")
+    return
+  }
+
+  try {
+    if (post.likeCount === undefined) post.likeCount = 0
+    post.likeCount++
+    if (!post.likesMap) post.likesMap = {}
+    if (!post.likesMap[user.value.uid]) post.likesMap[user.value.uid] = 0
+    post.likesMap[user.value.uid]++
+    await likePost(post.id, user.value.uid)
+  } catch (error) {
+    console.error("いいね処理中にエラー:", error)
+    post.likeCount--
+    post.likesMap[user.value.uid]--
+    alert("いいねに失敗しました。")
+  }
+}
+
+// 返信を保管（下書き保存）
+const handleDraft = () => {
+  if (!selectedPost.value) return
+  // TODO: 後で実装する関数を呼び出す
+  console.log('返信を保管:', selectedPost.value.id)
+  alert('返信を保管しました（仮実装）')
+}
+
+// 投稿を非表示
+const handleHide = () => {
+  if (!selectedPost.value) return
+  // TODO: 後で実装する関数を呼び出す
+  console.log('非表示:', selectedPost.value.id)
+  alert('この投稿を非表示にしました（仮実装）')
+}
+
+const getMyLikeCount = (post) => {
+  if (!user.value || !post.likesMap) return 0
+  return post.likesMap[user.value.uid] || 0
+}
+
 // 投稿チェーンを読み込む
 onMounted(async () => {
+  // bodyのスクロールを防止
+  document.body.style.overflow = 'hidden'
+  document.body.style.height = '100vh'
+  document.body.style.width = '100vw'
+
   const postId = route.params.id
   try {
     const posts = await getPostChain(postId)
     if (posts && posts.length > 0) {
       chainPosts.value = posts
+
+      // デバッグ: 投稿データの構造を確認
+      console.log('📝 投稿データサンプル:', posts[0])
+      console.log('📅 createdAt存在:', posts[0]?.createdAt)
+
       await loadAuthorProfiles(posts)
 
       // クリックされた投稿のインデックスを見つける
@@ -61,7 +130,11 @@ const initPanzoom = () => {
       // 初期ズームと位置を設定
       setTimeout(() => {
         if (panzoomInstance) {
-          panzoomInstance.zoom(1.5, { animate: false })
+          // zoomAbsで1.5倍にズーム（画面中心を基準に）
+          const viewportCenterX = mapViewport.value.offsetWidth / 2
+          const viewportCenterY = mapViewport.value.offsetHeight / 2
+          panzoomInstance.zoomAbs(viewportCenterX, viewportCenterY, 1.5)
+
           centerOnHighlightedNode()
         }
       }, 100)
@@ -91,33 +164,79 @@ const centerOnHighlightedNode = () => {
 
     // ノードの実際の位置を計算（パーセンテージから）
     const nodeLeftPercent = (100 / (levelNodes.length + 1)) * (indexInLevel + 1)
-    const nodeTop = 100 + depth * 200
+    const nodeTop = 100 + depth * 800
 
     // コンテナの実際の幅を取得
     const containerWidth = mapContainer.value.offsetWidth
     const nodeLeft = (containerWidth * nodeLeftPercent) / 100
+
+    // ノードのサイズを考慮（ルートノードは380px、それ以外は300px）
+    const nodeSize = depth === 0 ? 380 : 300
+    const nodeHalfSize = nodeSize / 2
 
     // ビューポートの中心座標
     const viewportCenterX = mapViewport.value.offsetWidth / 2
     const viewportCenterY = mapViewport.value.offsetHeight / 2
 
     // 現在のズームレベルを取得
-    const scale = panzoomInstance.getScale()
+    const transform = panzoomInstance.getTransform()
+    const scale = transform.scale
 
     // ノードを中央に配置するために必要なパン量を計算
-    const panX = viewportCenterX - (nodeLeft * scale)
-    const panY = viewportCenterY - (nodeTop * scale)
+    const nodeCenterX = nodeLeft
+    const nodeCenterY = nodeTop + nodeHalfSize
+
+    const panX = viewportCenterX - (nodeCenterX * scale)
+    const panY = viewportCenterY - (nodeCenterY * scale)
+
+    // デバッグログ（必要に応じてコメントアウト）
+    if (false) { // デバッグ時はtrueに変更
+      console.log('=== centerOnHighlightedNode Debug ===')
+      console.log('選択された投稿:', targetPost.id, targetPost.text?.substring(0, 20))
+      console.log('階層 (depth):', depth, '同階層内の位置:', indexInLevel, '/', levelNodes.length)
+      console.log('ノードサイズ:', nodeSize, 'px')
+      console.log('ノード位置:', nodeLeft.toFixed(2), 'px (', nodeLeftPercent.toFixed(2), '%)')
+      console.log('ビューポート中心:', viewportCenterX.toFixed(2), 'px,', viewportCenterY.toFixed(2), 'px')
+      console.log('ズーム倍率:', scale)
+      console.log('パン:', panX.toFixed(2), 'px,', panY.toFixed(2), 'px')
+      console.log('=====================================')
+    }
 
     // パンを適用
-    panzoomInstance.pan(panX, panY, { animate: true })
+    panzoomInstance.moveTo(panX, panY)
   }, 150)
 }
 
-// クリーンアップ
-onUnmounted(() => {
+// クリーンアップ（コンポーネント破棄前）
+onBeforeUnmount(() => {
+  console.log('🧹 onBeforeUnmount - クリーンアップ開始')
+
+  // bodyのスクロールを元に戻す
+  document.body.style.overflow = ''
+  document.body.style.height = ''
+  document.body.style.width = ''
+
   if (panzoomInstance) {
-    panzoomInstance.destroy()
+    panzoomInstance.dispose()
   }
+
+  console.log('✅ onBeforeUnmount - クリーンアップ完了')
+})
+
+// クリーンアップ（コンポーネント破棄後）
+onUnmounted(() => {
+  console.log('🧹 onUnmounted - 最終クリーンアップ開始')
+
+  // bodyのスクロールを元に戻す（念のため再度実行）
+  document.body.style.overflow = ''
+  document.body.style.height = ''
+  document.body.style.width = ''
+
+  if (panzoomInstance) {
+    panzoomInstance.dispose()
+  }
+
+ console.log('✅ onUnmounted - 最終クリーンアップ完了')
 })
 
 // 全著者のプロフィール情報を取得
@@ -143,11 +262,6 @@ const loadAuthorProfiles = async (posts) => {
 }
 
 // 階層ごとの色を取得する関数
-const getColorByDepth = (depth) => {
-  const colors = ['#FF8C42', '#2196F3', '#4CAF50', '#9C27B0', '#FF5722', '#795548', '#607D8B']
-  return colors[(depth || 0) % colors.length]
-}
-
 // 家系図のレイアウト計算
 const treeLayout = computed(() => {
   const nodes = [];
@@ -172,7 +286,7 @@ const treeLayout = computed(() => {
     const levelNodes = postsByDepth[depth];
     const indexInLevel = levelNodes.findIndex(p => p.id === post.id);
 
-    const top = 100 + depth * 200;
+    const top = 100 + depth * 800;
     const left = (100 / (levelNodes.length + 1)) * (indexInLevel + 1);
 
     const nodeData = {
@@ -180,8 +294,7 @@ const treeLayout = computed(() => {
       originalIndex,
       style: {
         top: `${top}px`,
-        left: `${left}%`,
-        backgroundColor: getColorByDepth(depth)
+        left: `${left}%`
       },
       isRoot: depth === 0
     };
@@ -207,7 +320,7 @@ const treeLayout = computed(() => {
   });
 
   const maxDepth = Math.max(...chainPosts.value.map(p => p.depth || 0), 0);
-  const containerHeight = 200 + maxDepth * 200;
+  const containerHeight = 300 + maxDepth * 800;
 
   return { nodes, connectors, containerHeight };
 });
@@ -252,23 +365,93 @@ const getAuthorName = (post) => {
   return profile?.displayName || '名前未設定のユーザー'
 }
 
-const getAvatarInitial = (post) => {
-  if (!post) return '';
-  const name = getAuthorName(post)
-  return name.charAt(0).toUpperCase()
+// 日付を「2025年10月27日 21:18」形式にフォーマット
+const formatDate = (post) => {
+  // timestampまたはcreatedAtを取得
+  const timestamp = post?.timestamp || post?.createdAt
+
+  if (!timestamp) return '日付なし'
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    if (isNaN(date.getTime())) return '日付なし'
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    return `${year}年${month}月${day}日 ${hours}:${minutes}`
+  } catch (error) {
+    console.error('日付のフォーマットエラー:', error)
+    return '日付なし'
+  }
+}
+
+// この投稿から繋がった人数（子投稿数）を取得
+const getChildrenCount = (postId) => {
+  return chainPosts.value.filter(post => post.replyTo === postId).length
+}
+
+// 最大階層数を取得
+const getMaxDepth = () => {
+  return Math.max(...chainPosts.value.map(p => p.depth || 0), 0)
+}
+
+// タグを12文字以内に制限して取得（#を含む）
+const getLimitedTags = (tags) => {
+  if (!tags || tags.length === 0) return []
+
+  const limitedTags = []
+  let totalLength = 0
+  const maxLength = 12
+
+  for (let i = 0; i < tags.length; i++) {
+    const tag = tags[i]
+    const tagWithHash = `#${tag}`
+    // 2つ目以降のタグにはスペース分を追加
+    const spaceLength = i > 0 ? 1 : 0
+    const newLength = totalLength + tagWithHash.length + spaceLength
+
+    console.log(`タグ: ${tagWithHash}, 文字数: ${tagWithHash.length}, 累計: ${newLength}`)
+
+    if (newLength <= maxLength) {
+      limitedTags.push(tag)
+      totalLength = newLength
+    } else {
+      console.log(`❌ 12文字超過のため "${tagWithHash}" をスキップ`)
+      break
+    }
+  }
+
+  console.log(`✅ 表示タグ:`, limitedTags, `合計文字数: ${totalLength}`)
+  return limitedTags
 }
 
 const handleBack = () => {
+  console.log('🔙 handleBack called - bodyスタイルをリセットします')
+
+  // 遷移前に必ずbodyスタイルをリセット
+  document.body.style.overflow = ''
+  document.body.style.height = ''
+  document.body.style.width = ''
+
+  console.log('✅ bodyスタイルリセット完了:', {
+    overflow: document.body.style.overflow || 'デフォルト',
+    height: document.body.style.height || 'デフォルト',
+    width: document.body.style.width || 'デフォルト'
+  })
+
+  // Panzoomインスタンスも破棄（正しいメソッドはdispose）
+  if (panzoomInstance) {
+    panzoomInstance.dispose()
+    console.log('✅ Panzoomインスタンス破棄完了')
+  }
+
   router.push('/')
 }
 </script>
 
 <template>
   <div class="detail-page">
-    <header class="app-header detail-header">
-      <button @click="handleBack" class="back-link">← タイムラインに戻る</button>
-    </header>
-
     <div v-if="isLoading" class="loading-container">
       <p>読み込み中...</p>
     </div>
@@ -278,7 +461,7 @@ const handleBack = () => {
         <div
           ref="mapContainer"
           class="tree-container"
-          :style="{ height: `${treeLayout.containerHeight}px`, width: `${treeLayout.containerHeight * 1.5}px` }"
+          :style="{ height: `${treeLayout.containerHeight}px`, width: `${treeLayout.containerHeight* 3}px` }"
           :class="{ 'has-selection': !!highlightedFamilyIds.self }"
         >
           <svg class="tree-svg-connectors">
@@ -308,15 +491,15 @@ const handleBack = () => {
               </marker>
             </defs>
 
-            <line
+ <line
               v-for="line in treeLayout.connectors"
               :key="line.id"
               :x1="`${line.x1}%`"
-              :y1="line.y1 + 25"
+              :y1="line.y1 + 150"
               :x2="`${line.x2}%`"
-              :y2="line.y2 + 25"
+              :y2="line.y2 + 150"
               class="tree-connector-line"
-              :class="{
+   :class="{
                 'is-family-connector':
                   (line.id === `${highlightedFamilyIds.parent}-${highlightedFamilyIds.self}`) ||
                   (highlightedFamilyIds.children.some(childId => line.id === `${highlightedFamilyIds.self}-${childId}`))
@@ -339,19 +522,25 @@ const handleBack = () => {
             :style="node.style"
             @click="highlightThread(node.originalIndex)"
           >
-            {{ getAvatarInitial(node) }}
-            <span class="node-tooltip">{{ node.text.substring(0, 20) }}...</span>
-          </div>
+            <img :src="flagImage" class="flag-image" alt="flag" />
 
-          <div class="tree-levels">
-            <div
-              v-for="level in (Math.max(...chainPosts.map(p => p.depth || 0), 0) + 1)"
-              :key="level"
-              class="level-marker"
-              :style="{top: `${100 + (level - 1) * 200}px`}"
-            >
-              Lv.{{ level - 1 }}
+            <!-- 旗の中の情報表示 -->
+            <div class="flag-content">
+              <div class="flag-author">{{ getAuthorName(node) }}</div>
+              <div class="flag-date">{{ formatDate(node) }}</div>
+              <div class="flag-divider"></div>
+              <div class="flag-tags" v-if="node.tags && node.tags.length > 0">
+                <span v-for="tag in getLimitedTags(node.tags)" :key="tag" class="flag-tag">#{{ tag }}</span>
+              </div>
+              <div class="flag-stats">
+                <span class="flag-badge">{{ (node.depth || 0) }}/{{ getMaxDepth() }}層</span>
+                <span class="flag-badge">❤️ {{ node.likeCount || 0 }}</span>
+                <span class="flag-badge">→{{ getChildrenCount(node.id) }}</span>
+              </div>
             </div>
+
+            <img :src="nodeImage" class="node-image" alt="node" />
+            <span class="node-tooltip">{{ node.text.substring(0, 20) }}...</span>
           </div>
         </div>
 
@@ -379,6 +568,32 @@ const handleBack = () => {
             </div>
           </div>
         </div>
+
+        <!-- アクションボタンオーバーレイ -->
+        <div v-if="selectedPost" class="action-overlay">
+          <div class="action-header">
+            <span class="action-target-name">{{ getAuthorName(selectedPost) }}</span>
+            <span class="action-target-text">{{ selectedPost.text.substring(0, 30) }}...</span>
+          </div>
+
+          <div class="action-buttons-container">
+            <button @click="handleLike" class="action-btn like-btn">
+              <span class="btn-icon">❤️</span>
+              <span class="btn-text">いいね</span>
+              <span class="btn-count">{{ selectedPost.likeCount || 0 }}</span>
+            </button>
+
+            <button @click="handleDraft" class="action-btn draft-btn">
+              <span class="btn-icon">📦</span>
+              <span class="btn-text">保管</span>
+            </button>
+
+            <button @click="handleHide" class="action-btn hide-btn">
+              <span class="btn-icon">🌊</span>
+              <span class="btn-text">流す</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 投稿リストポップアップ -->
@@ -389,58 +604,40 @@ const handleBack = () => {
         v-model:isOpen="isPostListOpen"
         @selectPost="highlightThread"
       />
+
+      <!-- 戻るボタン（独立した要素として配置） -->
+      <button @click="handleBack" class="back-button">
+        ← メイン画面に戻る
+      </button>
     </div>
 
     <div v-else class="empty-container">
       <p>投稿が見つかりませんでした。</p>
-      <button class="back-btn" @click="handleBack">タイムラインに戻る</button>
+      <button class="back-btn" @click="handleBack">メイン画面に戻る</button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .detail-page {
-  background-color: #fafafa;
-  min-height: 100vh;
+  background-color: #006994;
+  height: 100vh;
+  width: 100vw;
   padding: 0;
   margin: 0;
-}
-
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  background-color: #fff;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  position: sticky;
+  overflow: hidden;
+  position: fixed;
   top: 0;
-  z-index: 999;
-}
-
-.back-link {
-  background: none;
-  border: none;
-  color: #333;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.back-link:hover {
-  background-color: #f5f5f5;
-  color: #FF8C42;
+  left: 0;
 }
 
 .detail-container {
   width: 100%;
-  height: calc(100vh - 60px);
+  height: 100vh;
   padding: 0;
   margin: 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .map-viewport {
@@ -448,12 +645,8 @@ const handleBack = () => {
   height: 100%;
   overflow: hidden;
   position: relative;
-  background: #fafafa;
+  background: linear-gradient(to bottom, #1a8fbd 0%, #006994 50%, #004d6b 100%);
   cursor: grab;
-}
-
-.map-viewport:active {
-  cursor: grabbing;
 }
 
 .tree-container {
@@ -462,6 +655,7 @@ const handleBack = () => {
   width: 100%;
   transform-origin: 0 0;
   touch-action: none;
+  z-index: 1;
 }
 
 .tree-svg-connectors {
@@ -476,25 +670,109 @@ const handleBack = () => {
 
 .tree-connector-line {
   stroke: #ccc;
-  stroke-width: 2px;
+  stroke-width: 3px;
   transition: all 0.3s ease-in-out;
 }
 
 .tree-node {
   position: absolute;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+  width: 300px;
+  height: 300px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1rem;
-  color: white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   z-index: 2;
   cursor: pointer;
   transition: all 0.2s ease;
   transform: translateX(-50%);
+  background: none !important;
+  box-shadow: none;
+}
+
+.flag-image {
+  position: absolute;
+  top: -20%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.flag-content {
+  position: absolute;
+  top: 7%;
+  left: 59%;
+  transform: translateX(-50%);
+  width: 50%;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 8px;
+  font-size: 9px;
+  color: #333;
+}
+
+.flag-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flag-date {
+  font-size: 9px;
+  color: #666;
+  line-height: 1.2;
+}
+
+.flag-divider {
+  width: 70%;
+  height: 1px;
+  background: #ddd;
+  margin: 1px 0;
+}
+
+.flag-tags {
+  font-size: 9px;
+  color: #FF8C42;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flag-tag {
+  margin-right: 3px;
+}
+
+.flag-stats {
+  display: flex;
+  gap: 3px;
+  margin-top: 1px;
+  flex-wrap: wrap;
+}
+
+.flag-badge {
+  background: rgba(255, 255, 255, 0);
+  border: 1px solid #FF8C42;
+  color: #333;
+  padding: 1px 4px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.node-image {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 2;
 }
 
 .tree-container.has-selection .tree-node:not(.is-family) {
@@ -508,23 +786,54 @@ const handleBack = () => {
 
 .tree-connector-line.is-family-connector {
   stroke: #FF8C42;
-  stroke-width: 3px;
+  stroke-width: 4px;
   marker-end: url(#arrowhead-highlight);
 }
 
 .tree-node:hover {
-  transform: translateX(-50%) scale(1.1);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  transform: translateX(-50%) scale(1.15);
 }
 
 .tree-node.active {
-  box-shadow: 0 0 0 3px #fff, 0 0 0 6px #4CAF50;
+  transform: translateX(-50%) scale(1.2);
 }
 
 .tree-node.root {
-  width: 60px;
-  height: 60px;
-  font-weight: bold;
+  width: 380px;
+  height: 380px;
+}
+
+.tree-node.root .node-image {
+  width: 100%;
+  height: 100%;
+}
+
+.tree-node.root .flag-content {
+  width: 63%;
+  left: 65%;
+  padding: 6px 10px;
+  gap: 2.5px;
+}
+
+.tree-node.root .flag-author {
+  font-size: 14px;
+}
+
+.tree-node.root .flag-date {
+  font-size: 11px;
+}
+
+.tree-node.root .flag-tags {
+  font-size: 11px;
+}
+
+.tree-node.root .flag-divider {
+  width: 60%;
+}
+
+.tree-node.root .flag-badge {
+  font-size: 11px;
+  padding: 2px 5px;
 }
 
 .node-tooltip {
@@ -562,15 +871,15 @@ const handleBack = () => {
 .level-marker {
   position: absolute;
   font-size: 0.8rem;
-  color: #888;
-  background: rgba(240, 242, 245, 0.8);
+  color: #ffffff;;
+  background: rgba(26, 143, 189, 0.6);
   padding: 2px 5px;
   border-radius: 4px;
 }
 
 .stats-overlay {
   position: absolute;
-  bottom: 20px;
+  top: 20px;
   right: 20px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
@@ -582,6 +891,147 @@ const handleBack = () => {
   flex-direction: column;
   gap: 12px;
   min-width: 180px;
+}
+
+/* アクションボタンオーバーレイ */
+.action-overlay {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.action-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #eee;
+}
+
+.action-target-name {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.action-target-text {
+  font-size: 0.75rem;
+  color: #666;
+  font-style: italic;
+}
+
+.action-buttons-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 2px solid;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: serif;
+  font-weight: 500;
+  min-height: 70px;
+}
+
+.btn-icon {
+  font-size: 1.5rem;
+}
+
+.btn-text {
+  font-size: 0.75rem;
+}
+
+.btn-count {
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: inherit;
+}
+
+.like-btn {
+  background: linear-gradient(to bottom, #FFE5E5 0%, #FFD0D0 100%);
+  border-color: #FF6B6B;
+  color: #C85A54;
+}
+
+.like-btn:hover {
+  background: linear-gradient(to bottom, #FFF0F0 0%, #FFE5E5 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(200, 90, 84, 0.2);
+}
+
+.draft-btn {
+  background: linear-gradient(to bottom, #F5E6D3 0%, #E8D4B8 100%);
+  border-color: #8B7355;
+  color: #5C4A3A;
+}
+
+.draft-btn:hover {
+  background: linear-gradient(to bottom, #FFF8EC 0%, #F5E6D3 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(139, 115, 85, 0.2);
+}
+
+.hide-btn {
+  background: linear-gradient(to bottom, #D4E8F0 0%, #B8D8E8 100%);
+  border-color: #5B8FA3;
+  color: #2C5F75;
+}
+
+.hide-btn:hover {
+  background: linear-gradient(to bottom, #E0F0F8 0%, #D0E8F0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(91, 143, 163, 0.2);
+}
+
+.back-button {
+  position: fixed !important;
+  top: 80px !important;
+  left: 20px !important;
+  background: #ffffff !important;
+  border: 2px solid #FF8C42 !important;
+  color: #333 !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  padding: 14px 24px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  z-index: 99999 !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.back-button:hover {
+  background: #FF8C42 !important;
+  color: white !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(255, 140, 66, 0.4) !important;
+}
+
+.back-button:active {
+  transform: translateY(0) !important;
 }
 
 .stat-item {
@@ -615,13 +1065,17 @@ const handleBack = () => {
 
 .loading-container,
 .empty-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   text-align: center;
   padding: 40px 20px;
   background: white;
-  margin: 20px auto;
   max-width: 600px;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 1001;
 }
 
 .back-btn {
@@ -637,5 +1091,14 @@ const handleBack = () => {
 
 .back-btn:hover {
   background-color: #EE965F;
+}
+</style>
+
+<style>
+/* グローバルスタイル：ChainViewページでのスクロール防止 */
+body:has(.detail-page) {
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 </style>

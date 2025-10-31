@@ -3,6 +3,7 @@ import { ref, computed, defineProps, defineEmits, watch, nextTick } from 'vue'
 import { likePost } from '../firebaseService'
 import { isPostFormModalOpen, replyToPost } from '../store/modal'
 import { user } from '../store/user'
+import letterImage from '../assets/letter1.png'
 
 const props = defineProps({
   chainPosts: {
@@ -23,10 +24,50 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:isOpen', 'selectPost'])
+const emit = defineEmits(['update:isOpen', 'selectPost', 'update:height'])
 
 // ポップアップのコンテンツ要素への参照
 const popupContent = ref(null)
+
+// リサイズ機能
+const popupHeight = ref(40) // vh単位
+const isDragging = ref(false)
+const startY = ref(0)
+const startHeight = ref(0)
+
+const startResize = (event) => {
+  isDragging.value = true
+  startY.value = event.clientY || event.touches[0].clientY
+  startHeight.value = popupHeight.value
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+  document.addEventListener('touchmove', onResize)
+  document.addEventListener('touchend', stopResize)
+}
+
+const onResize = (event) => {
+  if (!isDragging.value) return
+
+  const currentY = event.clientY || event.touches[0].clientY
+  const deltaY = startY.value - currentY // 上に動かすと正の値
+  const windowHeight = window.innerHeight
+  const deltaVh = (deltaY / windowHeight) * 100
+
+  let newHeight = startHeight.value + deltaVh
+  // 最小20vh、最大95vhに制限
+  newHeight = Math.max(20, Math.min(95, newHeight))
+
+  popupHeight.value = newHeight
+  emit('update:height', newHeight) // 親に高さを通知
+}
+
+const stopResize = () => {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('touchmove', onResize)
+  document.removeEventListener('touchend', stopResize)
+}
 
 // ハイライトされた投稿が変わったら自動スクロール
 watch(() => props.highlightedPostIndex, async (newIndex) => {
@@ -90,6 +131,22 @@ const handleReply = (post, event) => {
   isPostFormModalOpen.value = true
 }
 
+// 返信を保管（下書き保存）
+const handleDraft = (post, event) => {
+  event.stopPropagation()
+  // TODO: 後で実装する関数を呼び出す
+  console.log('返信を保管:', post.id)
+  alert('返信を保管しました（仮実装）')
+}
+
+// 投稿を非表示
+const handleHide = (post, event) => {
+  event.stopPropagation()
+  // TODO: 後で実装する関数を呼び出す
+  console.log('非表示:', post.id)
+  alert('この投稿を非表示にしました（仮実装）')
+}
+
 const getMyLikeCount = (post) => {
   if (!user.value || !post.likesMap) return 0
   return post.likesMap[user.value.uid] || 0
@@ -101,6 +158,20 @@ const getColorByDepth = (depth) => {
   return colors[(depth || 0) % colors.length]
 }
 
+// 階層ヘッダーの色を取得（手紙に合う落ち着いた色）
+const getDepthHeaderColor = (depth) => {
+  const colors = [
+    '#C8A882', // ベージュゴールド
+    '#A89070', // モカブラウン
+    '#B8A890', // サンドベージュ
+    '#9B8B7E', // グレージュ
+    '#D4A574', // ライトブラウン
+    '#8B7B6B', // ダークベージュ
+    '#C4B5A0'  // ウォームグレー
+  ]
+  return colors[(depth || 0) % colors.length]
+}
+
 const rootPost = computed(() => {
   return props.chainPosts.find(post => post.type === 'thanks') || null
 })
@@ -109,12 +180,40 @@ const actionPosts = computed(() => {
   return props.chainPosts.filter(post => post.type === 'action')
 })
 
+// 深さごとに投稿をグループ化
+const postsByDepth = computed(() => {
+  const groups = {}
+
+  actionPosts.value.forEach((post, index) => {
+    const depth = post.depth || 0
+    if (!groups[depth]) {
+      groups[depth] = []
+    }
+    groups[depth].push({
+      ...post,
+      originalIndex: index + 1 // rootPostの分+1
+    })
+  })
+
+  return groups
+})
+
 const getAuthorName = (post) => {
   if (!post || !post.authorId) return '読み込み中...'
   if (post.isAnonymous) return '匿名ユーザー'
 
   const profile = props.authorProfiles[post.authorId]
   return profile?.displayName || '名前未設定のユーザー'
+}
+
+// 最大階層数を取得
+const getMaxDepth = () => {
+  return Math.max(...props.chainPosts.map(p => p.depth || 0), 0)
+}
+
+// 総いいね数を取得
+const getTotalLikes = () => {
+  return props.chainPosts.reduce((sum, post) => sum + (post.likeCount || 0), 0)
 }
 
 const getAvatarInitial = (post) => {
@@ -156,98 +255,111 @@ const handlePostClick = (index) => {
   </button>
 
   <!-- ポップアップコンテナ -->
-  <div class="popup-container" :class="{ open: isOpen }">
+  <div class="popup-container" :class="{ open: isOpen }" :style="{ height: `${popupHeight}vh` }">
     <div class="popup-header">
       <h3>投稿リスト</h3>
-      <button class="close-button" @click="closePopup">✕</button>
+      <!-- 統計情報 -->
+      <div class="header-stats">
+        <span class="header-stat">📊 {{ getMaxDepth() }}層</span>
+        <span class="header-stat">🪶 {{ chainPosts.length }}通</span>
+        <span class="header-stat">❤️ {{ getTotalLikes() }}</span>
+      </div>
+      <!-- リサイズ可能な棒状ハンドル -->
+      <button
+        class="close-handle"
+        @mousedown="startResize"
+        @touchstart="startResize"
+        @dblclick="closePopup"
+      >
+        <span class="close-bar"></span>
+      </button>
     </div>
 
     <div ref="popupContent" class="popup-content">
-      <!-- Thanks投稿 -->
-      <div
-        v-if="rootPost"
-        class="thread-item thanks-post"
-        :class="{ highlight: highlightedPostIndex === 0 }"
-        @click="handlePostClick(0)"
-      >
-        <div class="thread-content">
-          <div class="avatar" :style="{backgroundColor: getColorByDepth(0)}">
-            {{ getAvatarInitial(rootPost) }}
+      <!-- Thanks投稿（0層） -->
+      <div v-if="rootPost" class="depth-group single-item">
+        <!-- 階層ヘッダー -->
+        <div class="depth-header">
+          <div class="depth-block" style="background-color: #D4A574;">
+            <span class="depth-number">0</span>
           </div>
-          <div class="thread-text">
-            <div class="thread-header">
-              <div class="thread-name">{{ getAuthorName(rootPost) }}</div>
-              <div class="thread-time">{{ formatTimestamp(rootPost.timestamp) }}</div>
-            </div>
-            <div class="thread-body">
-              {{ rootPost.text }}
-              <div v-if="rootPost.feeling" class="thread-feeling">
-                "{{ rootPost.feeling }}"
-              </div>
-              <div v-if="rootPost.tags && rootPost.tags.length > 0" class="thread-tags">
-                <span v-for="tag in rootPost.tags" :key="tag" class="tag">#{{ tag }}</span>
-              </div>
-            </div>
+          <div class="depth-label">
+            <span class="depth-text">始まりの手紙</span>
+            <span class="depth-count">1通</span>
+          </div>
+          <div class="depth-line"></div>
+        </div>
 
-            <div class="thread-actions">
-              <button @click="handleLike(rootPost, $event)" class="like-button">
-                <span>❤️ {{ rootPost.likeCount || 0 }}</span>
-                <span v-if="getMyLikeCount(rootPost) > 0" class="my-like-count-indicator">
-                  ({{ getMyLikeCount(rootPost) }}/10)
-                </span>
-              </button>
-              <button @click="handleReply(rootPost, $event)" class="reply-button">続ける</button>
-           </div>
-          </div>
-          <div class="post-type-badge thanks-badge">
-            <span class="badge-icon">🙏</span>Thanks
+        <div
+          class="thread-item thanks-post"
+          :class="{ highlight: highlightedPostIndex === 0 }"
+          @click="handlePostClick(0)"
+        >
+          <img :src="letterImage" class="letter-background" alt="letter" />
+          <div class="thread-content">
+            <div class="thread-text">
+              <div class="thread-header">
+                <div class="thread-name">{{ getAuthorName(rootPost) }}</div>
+                <div class="thread-time">{{ formatTimestamp(rootPost.timestamp) }}</div>
+              </div>
+              <div class="thread-body">
+                {{ rootPost.text }}
+                <div v-if="rootPost.feeling" class="thread-feeling">
+                  "{{ rootPost.feeling }}"
+                </div>
+                <div v-if="rootPost.tags && rootPost.tags.length > 0" class="thread-tags">
+                  <span v-for="tag in rootPost.tags" :key="tag" class="tag">#{{ tag }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- NextAction投稿 -->
-      <div
-        v-for="(post, index) in actionPosts"
-        :key="post.id"
-        class="thread-item next-action"
-        :class="{ highlight: highlightedPostIndex === index + 1 }"
-        :style="{ borderLeftColor: getColorByDepth(post.depth) }"
-        @click="handlePostClick(index + 1)"
-      >
-        <div class="thread-content">
-          <div class="avatar" :style="{backgroundColor: getColorByDepth(post.depth)}">
-            {{ getAvatarInitial(post) }}
+      <!-- NextAction投稿（深さごとにグループ化） -->
+      <template v-for="(posts, depth) in postsByDepth" :key="`depth-${depth}`">
+        <div class="depth-group" :class="{ 'single-item': posts.length === 1 }">
+          <!-- 階層ヘッダー -->
+          <div class="depth-header" :style="{ borderLeftColor: getDepthHeaderColor(depth) }">
+            <div class="depth-block" :style="{ backgroundColor: getDepthHeaderColor(depth) }">
+              <span class="depth-number">{{ depth }}</span>
+            </div>
+            <div class="depth-label">
+              <span class="depth-text">第{{ depth }}層</span>
+              <span class="depth-count">{{ posts.length }}通</span>
+            </div>
+            <div class="depth-line"></div>
           </div>
-          <div class="thread-text">
-            <div class="thread-header">
-              <div class="thread-name">{{ getAuthorName(post) }}</div>
-              <div class="thread-time">{{ formatTimestamp(post.timestamp) }}</div>
-            </div>
-            <div class="thread-body">
-              {{ post.text }}
-              <div v-if="post.feeling" class="thread-feeling">
-                "{{ post.feeling }}"
-              </div>
-              <div v-if="post.tags && post.tags.length > 0" class="thread-tags">
-                <span v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</span>
-              </div>
-            </div>
 
-            <div class="thread-actions">
-              <button @click="handleLike(post, $event)" class="like-button">
-                <span>❤️ {{ post.likeCount || 0 }}</span>
-                <span v-if="getMyLikeCount(post) > 0" class="my-like-count-indicator">
-                  ({{ getMyLikeCount(post) }}/10)
-                </span>
-              </button>
-              <button @click="handleReply(post, $event)" class="reply-button">続ける</button>
+          <div
+            v-for="post in posts"
+            :key="post.id"
+            class="thread-item next-action"
+            :class="{ highlight: highlightedPostIndex === post.originalIndex }"
+            :style="{ borderLeftColor: getColorByDepth(post.depth) }"
+            @click="handlePostClick(post.originalIndex)"
+          >
+            <img :src="letterImage" class="letter-background" alt="letter" />
+            <div class="thread-content">
+              <div class="thread-text">
+                <div class="thread-header">
+                  <div class="thread-name">{{ getAuthorName(post) }}</div>
+                  <div class="thread-time">{{ formatTimestamp(post.timestamp) }}</div>
+                </div>
+                <div class="thread-body">
+                  {{ post.text }}
+                  <div v-if="post.feeling" class="thread-feeling">
+                    "{{ post.feeling }}"
+                  </div>
+                  <div v-if="post.tags && post.tags.length > 0" class="thread-tags">
+                    <span v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="post-type-badge next-badge" :style="{ backgroundColor: getColorByDepth(post.depth) }">
-            <span class="badge-icon">🔄</span>NextAction
           </div>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 
@@ -291,7 +403,6 @@ const handlePostClick = (index) => {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 40vh;
   background: white;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
@@ -310,37 +421,201 @@ const handlePostClick = (index) => {
 
 .popup-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 16px 20px;
+  padding: 8px 20px 16px;
   border-bottom: 1px solid #eee;
   flex-shrink: 0;
+  position: relative;
 }
 
 .popup-header h3 {
   margin: 0;
   font-size: 1.2rem;
   color: #333;
+  margin-top: 8px;
 }
 
-.close-button {
+.header-stats {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.header-stat {
+  font-family: serif;
+  font-size: 0.9rem;
+  color: #5C4A3A;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* リサイズ可能な棒状ハンドル */
+.close-handle {
   background: none;
   border: none;
-  font-size: 1.5rem;
-  color: #666;
-  cursor: pointer;
-  padding: 4px 8px;
-  line-height: 1;
+  cursor: ns-resize;
+  padding: 8px 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 
-.close-button:hover {
-  color: #333;
+.close-handle:hover .close-bar {
+  background-color: #999;
+  height: 5px;
+}
+
+.close-bar {
+  width: 40px;
+  height: 4px;
+  background-color: #ccc;
+  border-radius: 2px;
+  transition: all 0.2s;
 }
 
 .popup-content {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  background: linear-gradient(to bottom, #E8D4B8 0%, #D4BEA8 100%);
+  position: relative;
+}
+
+.popup-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(139, 115, 85, 0.03) 2px,
+      rgba(139, 115, 85, 0.03) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(139, 115, 85, 0.02),
+      rgba(139, 115, 85, 0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    linear-gradient(
+      135deg,
+      rgba(210, 180, 140, 0.1) 0%,
+      transparent 20%,
+      transparent 80%,
+      rgba(160, 120, 80, 0.1) 100%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 深さごとのグループ */
+.depth-group {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 階層ヘッダー */
+.depth-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.depth-block {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.depth-number {
+  font-family: serif;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.depth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.depth-text {
+  font-family: serif;
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #5C4A3A;
+}
+
+.depth-count {
+  font-family: serif;
+  font-size: 0.75rem;
+  color: #8B7355;
+}
+
+.depth-line {
+  flex: 1;
+  height: 1px;
+  border-top: 2px dashed #C8A882;
+  margin-left: 8px;
+}
+
+.depth-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.depth-indicator {
+  width: 100%;
+  height: 6px;
+  background: rgba(139, 115, 85, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.depth-bar {
+  height: 100%;
+  background: linear-gradient(to right, #C8A882, #A89070);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* 1つだけの場合は中央配置 */
+.depth-group.single-item {
+  grid-template-columns: 1fr;
+  max-width: 50%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* オーバーレイ背景 */
@@ -357,36 +632,58 @@ const handlePostClick = (index) => {
 
 /* 投稿アイテム */
 .thread-item {
-  padding: 15px;
-  margin-bottom: 12px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  position: relative;
+  padding: 40px 30px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: transform 0.2s;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.letter-background {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  object-fit: contain;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .thread-item:hover {
-  background-color: #f9f9f9;
+  transform: scale(1.02);
 }
 
 .thread-item.highlight {
-  background-color: #f0f8ff;
-  box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3);
+  transform: scale(1.05);
+  filter: drop-shadow(0 6px 12px rgba(255, 140, 66, 0.5));
 }
 
 .thread-item.thanks-post {
-  border-left: 4px solid #FF8C42;
+  border-left: none;
 }
 
 .thread-item.next-action {
-  border-left: 4px solid;
-  margin-left: 20px;
+  border-left: none;
 }
 
 .thread-content {
+  position: relative;
   display: flex;
   align-items: flex-start;
+  z-index: 1;
+  width: 58%;
+  max-width: 100%;
+  margin-top: -25px;
 }
 
 .avatar {
@@ -410,116 +707,65 @@ const handlePostClick = (index) => {
 .thread-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.3);
 }
 
 .thread-name {
   font-weight: bold;
-  color: #333;
+  color: #3C2F2F;
+  font-family: serif;
+  font-size: 0.95rem;
 }
 
 .thread-time {
-  color: #888;
-  font-size: 0.8em;
+  color: #8B7355;
+  font-size: 0.65em;
+  font-family: serif;
+  font-style: italic;
 }
 
 .thread-body {
-  color: #333;
-  line-height: 1.5;
+  color: #3C2F2F;
+  line-height: 1.7;
+  font-family: serif;
+  font-size: 0.85rem;
+  text-align: left;
+  letter-spacing: 0.02em;
 }
 
 .thread-feeling {
   font-style: italic;
-  color: #555;
-  margin: 10px 0;
-  border-left: 3px solid #fdeee0;
+  color: #5C4A3A;
+  margin: 8px 0;
+  border-left: 3px solid #D4A574;
   padding-left: 10px;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  font-family: serif;
+  background: rgba(212, 165, 116, 0.1);
+  padding: 6px 10px;
+  border-radius: 2px;
 }
 
 .thread-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
   margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(139, 115, 85, 0.3);
 }
 
 .tag {
-  background-color: #e0f7fa;
-  color: #00838f;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.8em;
-}
-
-.thread-actions {
-  display: flex;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.like-button {
-  background: none;
+  background: transparent;
+  color: #8B7355;
+  padding: 2px 4px;
+  border-radius: 0;
+  font-size: 0.75em;
+  font-family: 'Courier New', monospace;
+  font-style: italic;
   border: none;
-  padding: 4px 8px;
-  margin: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  color: #666;
-  font-size: 0.9rem;
-  border-radius: 16px;
-  transition: all 0.2s ease;
-}
-
-.like-button:hover {
-  color: #e74c3c;
-  background-color: #f9f9f9;
-}
-
-.my-like-count-indicator {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  margin-left: 6px;
-  background-color: #f3f4f6;
-  padding: 2px 6px;
-  border-radius: 8px;
-}
-
-.reply-button {
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 16px;
-  padding: 6px 16px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin-left: auto;
-}
-
-.reply-button:hover {
-  background-color: #45a049;
-}
-
-.post-type-badge {
-  border-radius: 16px;
-  padding: 3px 10px;
-  display: inline-flex;
-  align-items: center;
-  color: white;
-  font-weight: bold;
-  font-size: 0.8em;
-  margin-left: 10px;
-  flex-shrink: 0;
-}
-
-.thanks-badge {
-  background-color: #FF8C42;
-}
-
-.badge-icon {
-  margin-right: 4px;
+  position: relative;
 }
 </style>
