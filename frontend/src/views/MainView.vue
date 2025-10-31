@@ -13,6 +13,11 @@ const isModalOpen = ref(false)
 const selectedId = ref(null)
 const router = useRouter()
 
+// ★ モーダルドラッグ制御用の ref
+const touchStartY = ref(0)
+const isDragging = ref(false)
+const currentTranslateY = ref(0)
+
 // ★ 海・ボトルメール・島の世界観に合う色パレット
 const OCEAN_COLORS = [
   { name: 'coral', bg: 'rgba(255, 127, 80, 0.7)', border: '#FF7F50', shadow: 'rgba(255, 127, 80, 0.4)' },      // コーラル
@@ -31,7 +36,7 @@ const OCEAN_COLORS = [
 const bottlePositions = ref([])
 let animationFrameId = null
 
-// ボトルの初期スタイル生成
+// ボトルの初期スタイル生成 (省略)
 const generateBottleStyle = (index, color) => {
   const patterns = [
     { startX: 10, startY: 12, endX: 75, endY: 48 },
@@ -45,85 +50,65 @@ const generateBottleStyle = (index, color) => {
     { startX: 50, startY: 28, endX: 25, endY: 42 },
     { startX: 25, startY: 32, endX: 70, endY: 20 },
   ]
-  
   const pattern = patterns[index % patterns.length]
-  
   const journeyDuration = Math.random() * 20 + 35
   const journeyDelay = Math.random() * 10
-  
   const bobDuration = Math.random() * 5 + 6
   const bobDelay = Math.random() * 2
   const bobY = Math.random() * 60 + 50
-
   const rotateDuration = Math.random() * 4 + 5
   const rotateDelay = Math.random() * 3
   const rotateAngle = Math.random() * 15 + 10
-  
   const wiggleDuration = Math.random() * 3 + 3
   const wiggleDelay = Math.random() * 1.5
   const wiggleX = Math.random() * 40 + 30
-  
   return {
     '--start-x': `${pattern.startX}%`,
     '--start-y': `${pattern.startY}%`,
     '--end-x': `${pattern.endX}%`,
     '--end-y': `${pattern.endY}%`,
-    
     '--journey-duration': `${journeyDuration}s`,
     '--journey-delay': `${journeyDelay}s`,
-    
     '--bob-duration': `${bobDuration}s`,
     '--bob-delay': `${bobDelay}s`,
     '--bob-y': `${bobY}px`,
-    
     '--rotate-duration': `${rotateDuration}s`,
     '--rotate-delay': `${rotateDelay}s`,
     '--rotate-angle': `${rotateAngle}deg`,
-    
     '--wiggle-duration': `${wiggleDuration}s`,
     '--wiggle-delay': `${wiggleDelay}s`,
     '--wiggle-x': `${wiggleX}px`,
-    
     '--bottle-color': color.border,
     '--bottle-shadow': color.shadow,
   }
 }
 
-// ★ ボトル同士の反発処理
+// ★ ボトル同士の反発処理 (省略)
 const updateBottlePhysics = () => {
   const MIN_DISTANCE = 400
   const REPEL_FORCE = 1
-  
   bottlePositions.value.forEach((bottle, i) => {
     if (!bottle.element) return
-    
     let forceX = 0
     let forceY = 0
-    
     bottlePositions.value.forEach((other, j) => {
       if (i === j || !other.element) return
-      
       const dx = bottle.x - other.x
       const dy = bottle.y - other.y
       const distance = Math.sqrt(dx * dx + dy * dy)
-      
       if (distance < MIN_DISTANCE && distance > 0) {
         const force = (MIN_DISTANCE - distance) / MIN_DISTANCE
         forceX += (dx / distance) * force * REPEL_FORCE
         forceY += (dy / distance) * force * REPEL_FORCE
       }
     })
-    
     bottle.x += forceX
     bottle.y += forceY
-    
     bottle.x = Math.max(5, Math.min(85, bottle.x))
     bottle.y = Math.max(5, Math.min(55, bottle.y))
-    
     bottle.element.style.setProperty('--repel-x', `${forceX * 10}px`)
     bottle.element.style.setProperty('--repel-y', `${forceY * 10}px`)
   })
-  
   animationFrameId = requestAnimationFrame(updateBottlePhysics)
 }
 
@@ -138,40 +123,34 @@ const initBottlePhysics = () => {
       y: ((rect.top - containerRect.top) / containerRect.height) * 100,
     }
   })
-  
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
   updateBottlePhysics()
 }
 
-// ★ ランダムに4件選び、それぞれに色を割り当てる
+// ★ ランダムに4件選び、それぞれに色を割り当てる (省略)
 const selectRandomBottles = () => {
   if (!allPosts.value || allPosts.value.length === 0) {
     displayedBottles.value = []
     return
   }
-  
   const shuffled = [...allPosts.value].sort(() => 0.5 - Math.random())
   const selected = shuffled.slice(0, Math.min(4, shuffled.length))
-  
-  // ★ 4色をランダムに選択
   const shuffledColors = [...OCEAN_COLORS].sort(() => 0.5 - Math.random())
   const selectedColors = shuffledColors.slice(0, 4)
-  
   displayedBottles.value = selected.map((post, idx) => ({
     ...post,
     style: generateBottleStyle(idx, selectedColors[idx]),
-    color: selectedColors[idx], // ★ 色情報を保持
+    color: selectedColors[idx],
   }))
 }
 
-// データ取得
+// データ取得 (省略)
 const fetchPosts = async () => {
   isLoading.value = true
   try {
     const posts = await getThanksPosts()
     allPosts.value = posts
     selectRandomBottles()
-    
     setTimeout(() => {
       initBottlePhysics()
     }, 100)
@@ -192,7 +171,9 @@ watch(user, (newUser, oldUser) => {
   }
 })
 
+// ★ モーダル開閉ロジック
 const openModal = () => {
+  currentTranslateY.value = 0 
   isModalOpen.value = true
 }
 
@@ -203,6 +184,7 @@ const closeModal = () => {
 
 const handleBottleClick = (bottle) => {
   selectedId.value = bottle.id
+  currentTranslateY.value = 0
   isModalOpen.value = true
 }
 
@@ -212,9 +194,87 @@ const onCardClicked = (postId) => {
 
 const isDimmed = computed(() => isModalOpen.value)
 
+// ★ モーダルの動的なスタイル
+const modalStyle = computed(() => ({
+  transform: `translateY(${currentTranslateY.value}px)`,
+  transition: isDragging.value ? 'none' : 'transform 0.32s ease',
+}))
+
+// --- タッチイベント (スマートフォン用) ---
+const handleTouchStart = (e) => {
+  if (e.touches && e.touches.length > 0) {
+    isDragging.value = true
+    touchStartY.value = e.touches[0].clientY
+  }
+}
+
+const handleTouchMove = (e) => {
+  if (!isDragging.value) return
+  
+  if (e.touches && e.touches.length > 0) {
+    const touchY = e.touches[0].clientY
+    const diffY = touchY - touchStartY.value
+    currentTranslateY.value = Math.max(0, diffY) // 下方向のみ
+  }
+}
+
+const handleTouchEnd = () => {
+  if (!isDragging.value) return
+  isDragging.value = false
+  
+  const dragDistance = currentTranslateY.value
+  const threshold = 100 
+
+  if (dragDistance > threshold) {
+    closeModal()
+  } else {
+    currentTranslateY.value = 0
+  }
+}
+
+// --- ★ マウスイベント (PC用) ---
+const handleMouseMove = (e) => {
+  if (!isDragging.value) return
+  
+  const touchY = e.clientY
+  const diffY = touchY - touchStartY.value
+  currentTranslateY.value = Math.max(0, diffY) // 下方向のみ
+}
+
+const handleMouseUp = () => {
+  if (!isDragging.value) return
+  isDragging.value = false
+
+  // ★ window からリスナーを削除
+  window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('mouseup', handleMouseUp)
+
+  const dragDistance = currentTranslateY.value
+  const threshold = 100 
+
+  if (dragDistance > threshold) {
+    closeModal()
+  } else {
+    currentTranslateY.value = 0
+  }
+}
+
+const handleMouseDown = (e) => {
+  isDragging.value = true
+  touchStartY.value = e.clientY
+
+  // ★ ドラッグ操作を window 全体で監視する
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('mouseup', handleMouseUp)
+}
+// --- ここまで ---
+
 onMounted(() => {
   return () => {
     if (animationFrameId) cancelAnimationFrame(animationFrameId)
+    // ★ コンポーネント破棄時にリスナーを削除
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseup', handleMouseUp)
   }
 })
 </script>
@@ -250,7 +310,6 @@ onMounted(() => {
         >
           <div class="bottle">
             <img :src="bottleImg" alt="bottle" class="bottle-image" />
-            
             <div v-if="bottle.tags && bottle.tags.length > 0" class="bottle-tags">
               <span 
                 v-for="(tag, i) in bottle.tags.slice(0, 2)" 
@@ -277,7 +336,6 @@ onMounted(() => {
               </span>
             </div>
           </div>
-          
         </div>
       </div>
     </div>
@@ -290,7 +348,6 @@ onMounted(() => {
     >
       別のボトルメールを探す
     </button>
-
     <button
       v-if="!isModalOpen"
       class="floating-toggle open-btn"
@@ -303,12 +360,21 @@ onMounted(() => {
 
     <transition name="slide-up">
       <div v-if="isModalOpen" class="detail-overlay" @click.self="closeModal">
-        <div class="detail-container">
-          <div class="modal-handle"></div>
+        <div 
+          class="detail-container"
+          :style="modalStyle"
+          @touchmove.prevent="handleTouchMove"
+          @touchend="handleTouchEnd"
+          @touchcancel="handleTouchEnd"
+        >
+          <div 
+            class="modal-handle"
+            @touchstart.stop="handleTouchStart"
+            @mousedown.prevent="handleMouseDown" 
+          ></div>
 
           <div class="modal-content">
             <h3 class="modal-title">流れてきたボトルメール</h3>
-
             <div class="cards-grid">
               <ThanksCard
                 v-for="b in displayedBottles"
@@ -328,6 +394,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* (省略) .cards-grid ... .refresh-btn:hover */
 .cards-grid .thanks-card.highlighted {
   transform: scale(1.02);
   transition: all 0.2s ease-out;
@@ -335,7 +402,6 @@ onMounted(() => {
 .cards-grid .thanks-card {
   transition: all 0.2s ease-out;
 }
-
 .main-view {
   position: relative;
   min-height: calc(100vh - 70px);
@@ -343,7 +409,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
 }
-
 .ocean-container {
   position: relative;
   flex: 1;
@@ -369,7 +434,6 @@ onMounted(() => {
 .ocean-container.dimmed { 
   filter: brightness(0.7); 
 }
-
 .shore-waves {
   position: absolute;
   bottom: 15%;
@@ -379,7 +443,6 @@ onMounted(() => {
   pointer-events: none;
   z-index: 3;
 }
-
 .wave-layer {
   position: absolute;
   bottom: 0;
@@ -397,24 +460,20 @@ onMounted(() => {
   );
   mix-blend-mode: screen;
 }
-
 .wave-layer-1 {
   animation: tide-flow-1 3.5s ease-in-out infinite;
   opacity: 0.85;
 }
-
 .wave-layer-2 {
   animation: tide-flow-2 4.5s ease-in-out infinite;
   opacity: 0.7;
   animation-delay: -1.5s;
 }
-
 .wave-layer-3 {
   animation: tide-flow-3 5.5s ease-in-out infinite;
   opacity: 0.75;
   animation-delay: -3s;
 }
-
 @keyframes tide-flow-1 {
   0%, 100% {
     transform: translateY(0) scaleY(1);
@@ -425,7 +484,6 @@ onMounted(() => {
     opacity: 0.95;
   }
 }
-
 @keyframes tide-flow-2 {
   0%, 100% {
     transform: translateY(0) scaleY(1);
@@ -436,7 +494,6 @@ onMounted(() => {
     opacity: 0.85;
   }
 }
-
 @keyframes tide-flow-3 {
   0%, 100% {
     transform: translateY(0) scaleY(1);
@@ -447,7 +504,6 @@ onMounted(() => {
     opacity: 0.9;
   }
 }
-
 .loading-state, .empty-state {
   display: flex;
   flex-direction: column;
@@ -476,7 +532,6 @@ onMounted(() => {
   opacity: 0.8; 
   margin-top: 0.5rem; 
 }
-
 .bottles-area {
   position: relative;
   flex: 1;
@@ -486,7 +541,6 @@ onMounted(() => {
   padding: 2rem 1rem 0 1rem;
   z-index: 4;
 }
-
 @keyframes bottleJourney {
   0% { left: var(--start-x); top: var(--start-y); }
   100% { left: var(--end-x); top: var(--end-y); }
@@ -503,7 +557,6 @@ onMounted(() => {
   0% { transform: rotate(calc(var(--rotate-angle) * -0.5)); }
   100% { transform: rotate(calc(var(--rotate-angle) * 0.5)); }
 }
-
 .bottle-wrapper {
   position: absolute;
   cursor: pointer;
@@ -519,14 +572,12 @@ onMounted(() => {
   animation-delay: 
     var(--journey-delay),
     var(--bob-delay);
-  
   transform: translate(
     calc(var(--repel-x, 0px)), 
     calc(var(--repel-y, 0px))
   );
   transition: transform 0.3s ease-out;
 }
-
 .bottle {
   position: relative;
   display: inline-block;
@@ -538,7 +589,6 @@ onMounted(() => {
   animation-duration: var(--wiggle-duration);
   animation-delay: var(--wiggle-delay);
 }
-
 .bottle-image {
   width: 200px; 
   height: auto;
@@ -552,7 +602,6 @@ onMounted(() => {
   animation-duration: var(--rotate-duration);
   animation-delay: var(--rotate-delay);
 }
-
 .bottle-wrapper:hover .bottle-image {
   transform: scale(1.15);
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
@@ -565,7 +614,6 @@ onMounted(() => {
 .bottle-wrapper:hover .bottle {
   animation-play-state: paused;
 }
-
 .bottle-tags {
   position: absolute;
   top: 55%;
@@ -578,7 +626,6 @@ onMounted(() => {
   z-index: 2;
   pointer-events: none;
 }
-
 .bottle-tags::before {
   content: '';
   position: absolute;
@@ -591,7 +638,6 @@ onMounted(() => {
   background: #902821c3;
   opacity: 0.8;
 }
-
 .simple-tag {
   padding: 5px 10px;
   border-radius: 4px;
@@ -603,7 +649,6 @@ onMounted(() => {
   letter-spacing: 0.05em;
   transition: all 0.2s ease;
 }
-
 .tag-more {
   font-size: 0.9rem;
   font-weight: 500;
@@ -612,7 +657,6 @@ onMounted(() => {
   padding: 3px 6px;
   border: 2px solid;
 }
-
 .floating-toggle {
   position: fixed;
   bottom: 1.8rem;
@@ -638,19 +682,16 @@ onMounted(() => {
 }
 .open-btn {
   background: #FF8C42;
-  width: auto; /* コンテンツに合わせて幅を自動調整 */
-  padding: 10px 20px; /* 左右にパディングを追加して楕円形にする */
-  border-radius: 25px; /* 丸みを大きくして楕円形にする */
-  writing-mode: horizontal-tb; /* テキストを横書きにする */
-  text-orientation: mixed; /* 縦書き時の文字の向きをリセット */
-  
-  /* === refresh-btn から抜粋したフォント設定 === */
+  width: auto;
+  padding: 10px 20px;
+  border-radius: 25px;
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
   color: white;
   font-weight: 600;
   font-size: 1rem;
-  white-space: nowrap; /* テキストを折り返さない */
+  white-space: nowrap;
 }
-
 .floating-toggle .tooltip {
   display: none;
   position: absolute;
@@ -665,7 +706,6 @@ onMounted(() => {
 .floating-toggle:hover .tooltip { 
   display: block; 
 }
-
 .refresh-btn {
   position: fixed;
   bottom: 1.8rem;
@@ -683,10 +723,9 @@ onMounted(() => {
   transition: all 0.25s ease;
   white-space: nowrap;
 }
-
 .refresh-btn:hover {
   transform: scale(1.08);
-  background: #FF8C42;
+  background: #FF8C44;
   box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
@@ -696,30 +735,45 @@ onMounted(() => {
   left: 0;
   right: 0;
   top: 0;
-  background-color: rgba(0,0,0,0.25); /* ★ さらに透過率を上げる */
+  background-color: rgba(0,0,0,0.25);
   z-index: 200;
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
+
 .detail-container {
   width: 100%;
   max-height: 90vh;
-  background-color: rgba(255, 250, 245, 0.7); /* ★ 0.95 → 0.7 に変更 */
+  background-color: rgba(255, 250, 245, 0.7);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   padding: 15px;
   box-shadow: 0 -4px 24px rgba(0,0,0,0.2);
   overflow-y: auto;
-  backdrop-filter: blur(10px); /* ★ ぼかしを強化 */
+  backdrop-filter: blur(10px);
+  transition: transform 0.32s ease;
 }
+
 .modal-handle {
   width: 48px;
   height: 6px;
   background: #ddd;
   border-radius: 6px;
   margin: 0 auto 12px auto;
+  cursor: grab;
+  padding: 10px 0; /* タッチ領域を拡大 */
+  background-clip: content-box;
+  
+  /* ★ 追加: ドラッグ中のテキスト選択を無効化 */
+  user-select: none;
+  -webkit-user-select: none;
 }
+
+.modal-handle:active {
+  cursor: grabbing;
+}
+
 .modal-title {
   font-size: 1.5rem;
   font-weight: 700;
@@ -729,13 +783,13 @@ onMounted(() => {
 }
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));  /* 260px → 200px */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px;
 }
 
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: all 0.32s ease;
+  transition: transform 0.32s ease, opacity 0.32s ease;
 }
 .slide-up-enter-from {
   transform: translateY(100%);
@@ -754,6 +808,7 @@ onMounted(() => {
   opacity: 0;
 }
 
+/* (省略) @media */
 @media (max-width: 768px) {
   .bottle-image { 
     width: 125px; 
@@ -767,13 +822,11 @@ onMounted(() => {
     font-size: 0.65rem; 
     padding: 3px 6px; 
   }
-  
   .bottle-tags {
     top: 50%;
     left: 50%;
     transform: translateX(calc(-50% + 15px)) translateY(calc(-50% + 10px)) rotate(8deg); 
   }
-  
   .refresh-btn {
     padding: 12px 20px;
     font-size: 0.85rem;
