@@ -276,7 +276,7 @@ const cardStyle = computed(() => {
   width: 100%;
   height: 100%;
   min-height: 100%;
-  object-fit: contain;
+  object-fit: fill;
   z-index: 0;
   pointer-events: none;
   image-rendering: -webkit-optimize-contrast;
