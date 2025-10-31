@@ -91,8 +91,8 @@ const generateBottleStyle = (index, color) => {
 
 // ★ ボトル同士の反発処理
 const updateBottlePhysics = () => {
-  const MIN_DISTANCE = 350
-  const REPEL_FORCE = 0.7
+  const MIN_DISTANCE = 400
+  const REPEL_FORCE = 1
   
   bottlePositions.value.forEach((bottle, i) => {
     if (!bottle.element) return
