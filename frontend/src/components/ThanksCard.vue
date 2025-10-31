@@ -4,7 +4,7 @@ import { getUserProfile, likePost, saveAsTask, hidePost } from '../firebaseServi
 import { user } from '../store/user'
 import { useRouter } from 'vue-router'
 
-import scrollBackground from '../assets/thanks-card.png'
+import letterBackground from '../assets/thanks-card.png'
 
 const props = defineProps({
   post: {
@@ -147,9 +147,7 @@ const handleHide = async () => {
 }
 
 const cardStyle = computed(() => {
-  const style = {
-    '--scroll-bg': `url(${scrollBackground})`
-  }
+  const style = {}
   
   if (props.bottleColor) {
     style['--card-border-color'] = props.bottleColor.border
@@ -162,111 +160,155 @@ const cardStyle = computed(() => {
 </script>
 
 <template>
-  <div 
-    class="card thanks-card" 
-    role="article" 
-    :style="cardStyle"
-    :class="{ 
-      'with-color': bottleColor,
-      'is-selected': isSelected,
-      'is-not-selected': bottleColor && !isSelected
-    }"
-  >
-    <div class="card-header">
-      <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
-        <template v-if="!authorAvatar">{{ avatarInitial }}</template>
-      </div>
-      <div class="user-info">
-        <div class="name">{{ authorName }}</div>
-        <div class="id">@{{ (authorName || '').toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
+  <div class="post-wrapper">
+    <div 
+      class="thread-item thanks-post" 
+      role="article" 
+      :style="cardStyle"
+      :class="{ 
+        'with-color': bottleColor,
+        'highlight': isSelected,
+      }"
+    >
+      <img :src="letterBackground" alt="" class="letter-background" />
+      
+      <div class="thread-content">
+        <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
+          <template v-if="!authorAvatar">{{ avatarInitial }}</template>
+        </div>
+        
+        <div class="thread-text">
+          <div class="thread-header">
+            <span class="thread-name">{{ authorName }}</span>
+            <span class="thread-time">{{ formatTimestamp(props.post.timestamp) }}</span>
+          </div>
+          
+          <div class="thread-body">
+            {{ props.post.text }}
+          </div>
+          
+          <div v-if="props.post.feeling" class="thread-feeling">
+            "{{ props.post.feeling }}"
+          </div>
+          
+          <div v-if="props.post.tags && props.post.tags.length > 0" class="thread-tags">
+            <span 
+              v-for="tag in props.post.tags" 
+              :key="tag" 
+              class="tag"
+            >
+              #{{ tag }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="card-body">
-      <p>{{ props.post.text }}</p>
-      <div v-if="props.post.feeling" class="feeling-quote">
-        "{{ props.post.feeling }}"
-      </div>
-      <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
-        <span 
-          v-for="tag in props.post.tags" 
-          :key="tag" 
-          class="tag"
+    <!-- 木製バーのアクションボタン -->
+    <div class="thread-actions-below">
+      <!-- 封蝋風いいねボタン -->
+      <button @click="handleLike" class="like-button seal-style" title="いいね (10回まで)">
+        <span class="seal-wax">❤️</span>
+        <span class="seal-count">{{ props.post.likeCount || 0 }}</span>
+        <span v-if="myLikeCount > 0" class="my-like-indicator">{{ myLikeCount }}</span>
+      </button>
+      
+      <!-- その他のアクションボタン -->
+      <div class="action-buttons">
+        <button @click="goToChain" class="draft-button" title="連鎖マップを見る">
+          <span class="button-icon">🌳</span>
+          <span>マップ</span>
+        </button>
+        
+        <button 
+          @click="handleSaveTask" 
+          class="draft-button task-style"
+          :class="{ saved: isTaskSaved }"
+          :title="isTaskSaved ? 'Task保存済み' : 'Taskとして保存'"
         >
-          #{{ tag }}
-        </span>
+          <span class="button-icon">{{ isTaskSaved ? '✓' : '📌' }}</span>
+          <span>{{ isTaskSaved ? '保存済み' : 'ボトルを保管' }}</span>
+        </button>
+        
+        <button @click="handleHide" class="hide-button" title="この投稿を非表示">
+          <span class="button-icon">🌊</span>
+          <span>遠くに流す</span>
+        </button>
       </div>
-    </div>
-
-    <div class="card-actions">
-      <button @click="goToChain" class="action-btn chain-btn" title="連鎖マップを見る">
-        🌳 マップ
-      </button>
-      
-      <button @click="handleHide" class="action-btn hide-btn" title="この投稿を非表示">
-        👁️‍🗨️ 非表示
-      </button>
-      
-      <button @click="handleLike" class="action-btn like-btn" :title="`10回までいいねできます`">
-        <span>❤️ {{ props.post.likeCount || 0 }}</span>
-        <span v-if="myLikeCount > 0" class="my-like-badge">{{ myLikeCount }}</span>
-      </button>
-      
-      <button 
-        @click="handleSaveTask" 
-        class="action-btn task-btn" 
-        :class="{ saved: isTaskSaved }"
-        :title="isTaskSaved ? 'Task保存済み' : 'Taskとして保存'"
-      >
-        {{ isTaskSaved ? '✓ 保存済み' : '📌 Task保存' }}
-      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.card.thanks-card {
-  background-image: var(--scroll-bg); 
-  background-size: 95% 90%; 
-  background-repeat: no-repeat;
-  background-position: center;
-  background-color: transparent;
-  
-  border-radius: 0; 
-  box-shadow: none;
-  border: none;
-  
-  margin-bottom: 20px; 
-  
+/* 投稿とボタンのラッパー */
+.post-wrapper {
   display: flex;
   flex-direction: column;
-
-  padding: 130px 45px 50px 100px;
-
-  color: #4b3832c6;
-  image-rendering: -webkit-optimize-contrast;
-  
-  aspect-ratio: 5 / 4;
-  width: 60%;
-  max-width: 200px;
-  
-  position: relative;
-  transition: all 0.3s ease;
-  
-  font-family: "游明朝", "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", "HGS明朝E", "MS P明朝", "MS 明朝", serif;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-.card.thanks-card.with-color {
+/* 投稿アイテム - 手紙背景 */
+.thread-item {
+  position: relative;
+  padding: 20px 30px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 0.2s, filter 0.3s ease;
+  min-height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 7 / 8;
+}
+
+.letter-background {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  object-fit: contain;
+  z-index: 0;
+  pointer-events: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.thread-item.with-color {
+  transition: opacity 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
+}
+
+.thread-item.with-color:not(.highlight) {
+  outline: none;
+  box-shadow: none;
+}
+
+.thread-item.with-color:not(.highlight)::before {
+  opacity: 0;
+}
+
+.thread-item.with-color.highlight {
   outline: 4px solid var(--card-border-color);
   outline-offset: -8px;
   box-shadow: 
     0 0 20px var(--card-shadow),
     0 0 40px var(--card-shadow),
     inset 0 0 30px rgba(255, 255, 255, 0.1);
-  transition: opacity 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease;
 }
 
-.card.thanks-card.with-color::before {
+.thread-item.with-color.highlight::before {
+  opacity: 0.8;
+}
+
+.thread-item.with-color::before {
   content: '';
   position: absolute;
   top: 0;
@@ -278,233 +320,359 @@ const cardStyle = computed(() => {
   box-shadow: 
     inset 0 0 20px var(--card-shadow),
     inset 0 0 40px var(--card-shadow);
-  opacity: 0.6;
+  opacity: 0;
   transition: opacity 0.3s ease;
 }
 
-.card.thanks-card.is-not-selected {
-  opacity: 1 !important;
-  outline-width: 2px !important;
-  outline-color: rgba(128, 128, 128, 0.3) !important;
+.thread-item.highlight {
+  transform: scale(1.05);
+  filter: brightness(1.05);
+}
+
+.thread-item.with-color.highlight {
+  outline: 4px solid var(--card-border-color);
+  outline-offset: -8px;
   box-shadow: 
-    0 0 5px rgba(128, 128, 128, 0.2) !important,
-    0 0 10px rgba(128, 128, 128, 0.1) !important;
+    0 0 20px var(--card-shadow),
+    0 0 40px var(--card-shadow),
+    inset 0 0 30px rgba(255, 255, 255, 0.1);
 }
 
-.card.thanks-card.is-not-selected::before {
-  opacity: 0.1 !important;
+.thread-item.with-color.highlight::before {
+  opacity: 0.8;
 }
 
-.card.thanks-card.is-selected {
-  opacity: 1 !important;
-  outline-width: 4px !important;
-}
-
-.card.thanks-card.is-selected::before {
-  opacity: 0.8 !important;
-}
-
-.card-header {
-  padding: 0;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
+.thread-content {
   position: relative;
+  display: flex;
+  align-items: flex-start;
   z-index: 1;
+  width: 58%;
+  max-width: 100%;
+  margin-top: -25px;
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  margin-right: 15px;
+  margin-right: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
   font-weight: bold;
   background-size: cover;
   background-position: center;
-  
-  background-color: #D7CCC8; 
-  color: #5D4037; 
-  border: 2px solid #A1887F; 
+  background-color: #D7CCC8;
+  color: #5D4037;
+  border: 2px solid #A1887F;
   flex-shrink: 0;
+  font-family: serif;
 }
 
-.user-info {
+.thread-text {
+  margin-left: 10px;
   flex-grow: 1;
   min-width: 0;
 }
 
-.name {
-  font-weight: bold;
-  font-size: 1rem;
-  color: #3E2723;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.id {
-  font-size: 0.8rem;
-  color: #5D4037;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-body {
-  padding: 0; 
-  margin-bottom: 20px; 
-  flex-grow: 1;
-  overflow-y: auto;
-  position: relative;
-  z-index: 1;
-}
-
-.card-body p {
-  color: #3E2723;
-  line-height: 1.6;
-  margin-top: 0;
+.thread-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   margin-bottom: 8px;
-  word-wrap: break-word;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.3);
+  gap: 8px;
 }
 
-.feeling-quote {
+.thread-name {
+  font-weight: bold;
+  color: #3C2F2F;
+  font-family: serif;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.thread-time {
+  color: #8B7355;
+  font-size: 0.65em;
+  font-family: serif;
   font-style: italic;
-  color: #5D4037;
-  margin: 12px 0;
-  border-left: 3px solid #8D6E63;
-  padding-left: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.thread-body {
+  color: #3C2F2F;
+  line-height: 1.7;
+  font-family: serif;
+  font-size: 0.85rem;
+  text-align: left;
+  letter-spacing: 0.02em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.thread-feeling {
+  font-style: italic;
+  color: #5C4A3A;
+  margin: 8px 0;
+  border-left: 3px solid #D4A574;
+  padding-left: 10px;
+  font-size: 0.8rem;
+  font-family: serif;
+  background: rgba(212, 165, 116, 0.1);
+  padding: 6px 10px;
+  border-radius: 2px;
   word-wrap: break-word;
 }
 
-.tags-container {
+.thread-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(139, 115, 85, 0.3);
 }
 
 .tag {
-  background-color: rgba(255, 255, 255, 0.2); 
-  color: #4B3832;
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  border: 1px solid #C1A78A;
+  background: transparent;
+  color: #8B7355;
+  padding: 2px 4px;
+  border-radius: 0;
+  font-size: 0.75em;
+  font-family: 'Courier New', monospace;
+  font-style: italic;
+  border: none;
+  position: relative;
   white-space: nowrap;
-  font-weight: 500;
 }
 
-.card-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding: 0;
-  margin-top: auto; 
-  
-  transform: translateY(75px);
+/* 手紙の下に配置されるアクションボタン - 木製の机モチーフ */
+.thread-actions-below {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 320px;
+  padding: 16px 24px;
+  background:
+    linear-gradient(180deg,
+      rgba(92, 74, 58, 0.95) 0%,
+      rgba(76, 60, 46, 0.98) 50%,
+      rgba(60, 47, 35, 1) 100%
+    );
+  border-radius: 8px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
   position: relative;
-  z-index: 1;
-} 
+  border: 1px solid rgba(60, 47, 35, 0.8);
+}
 
-.action-btn {
-  padding: 8px 5px;
+/* 木目テクスチャのオーバーレイ */
+.thread-actions-below::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.05) 2px,
+      rgba(0, 0, 0, 0.05) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(139, 115, 85, 0.1) 0%,
+      rgba(92, 74, 58, 0.1) 10%,
+      rgba(76, 60, 46, 0.1) 20%,
+      rgba(139, 115, 85, 0.1) 30%
+    );
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* 木の節の装飾 */
+.thread-actions-below::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 20px;
+  width: 30px;
+  height: 20px;
+  background: radial-gradient(ellipse at center,
+    rgba(0, 0, 0, 0.15) 0%,
+    rgba(0, 0, 0, 0.08) 40%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 封蝋風いいねボタン */
+.like-button.seal-style {
+  background: radial-gradient(circle, #C85A54 0%, #A84840 100%);
   border: none;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 6px 12px;
+  margin: 0;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-
-  transform: translateX(-30px);
-  
-  background-color: #8D6E63; 
+  gap: 4px;
   color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 0.75rem;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
-.action-btn:hover {
-  background-color: #795548; 
+.like-button.seal-style::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
-.chain-btn {
-  background-color: #689F38; 
-  color: white;
-}
-.chain-btn:hover { 
-  background-color: #558B2F; 
+.like-button.seal-style:hover {
+  background: radial-gradient(circle, #D86A64 0%, #B85850 100%);
+  transform: scale(1.05);
 }
 
-.hide-btn {
-  background-color: #757575; 
-  color: white;
-}
-.hide-btn:hover { 
-  background-color: #616161; 
+.seal-wax {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-.like-btn {
-  background-color: #FBE9E7; 
-  color: #d35454;
-  border: 2px solid #d45050;
-  box-shadow: none; 
-}
-.like-btn:hover {
-  background-color: #D32F2F;
-  color: white;
-}
-
-.my-like-badge {
-  background-color: #D32F2F;
-  color: white;
+.seal-count {
   font-size: 0.7rem;
-  padding: 2px 6px;
+  font-weight: bold;
+  font-family: serif;
+}
+
+.my-like-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #D32F2F;
+  color: white;
+  font-size: 0.65rem;
+  padding: 2px 5px;
   border-radius: 10px;
-  margin-left: 6px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.task-btn {
-  background-color: #FFF8E1; 
-  color: #AF8900;
-  border: 2px solid #FFC107;
-  box-shadow: none;
+/* アクションボタンコンテナ */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+  z-index: 10;
+  position: relative;
+  flex-wrap: wrap;
 }
-.task-btn:hover {
-  background-color: #FFC107;
-  color: #3E2723;
+
+/* ボトルを保管ボタン */
+.draft-button {
+  background: linear-gradient(to bottom, #F5E6D3 0%, #E8D4B8 100%);
+  border: 2px dashed #8B7355;
+  color: #5C4A3A;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
-.task-btn.saved {
-  background-color: #E8F5E9; 
-  color: #2E7D32;
-  border: 2px solid #28A745;
-  cursor: default;
+
+.draft-button:hover {
+  background: linear-gradient(to bottom, #FFF8EC 0%, #F5E6D3 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
-.task-btn.saved:hover {
-  background-color: #E8F5E9;
+
+.draft-button.task-style.saved {
+  background: linear-gradient(to bottom, #E8F5E9 0%, #C8E6C9 100%);
+  border: 2px solid #66BB6A;
   color: #2E7D32;
 }
 
+.draft-button.task-style.saved:hover {
+  background: linear-gradient(to bottom, #F1F8E9 0%, #DCEDC8 100%);
+}
+
+/* 遠くに流すボタン */
+.hide-button {
+  background: linear-gradient(to bottom, #D4E8F0 0%, #B8D8E8 100%);
+  border: 2px solid #5B8FA3;
+  color: #2C5F75;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.hide-button:hover {
+  background: linear-gradient(to bottom, #E0F0F8 0%, #D0E8F0 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.button-icon {
+  font-size: 0.9rem;
+}
+
+/* レスポンシブ対応 */
 @media (max-width: 768px) {
-  .card.thanks-card {
-    padding: 80px 40px 40px 80px;
-    max-width: 100%;
+  .thread-item {
+    min-height: 240px;
+    padding: 30px 20px;
   }
-
-  .card-actions {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    transform: translateY(20px); 
-  }
-
-  .action-btn {
-    font-size: 0.75rem;
-    padding: 8px 10px;
+  
+  .thread-content {
+    width: 65%;
   }
   
   .avatar {
@@ -512,12 +680,33 @@ const cardStyle = computed(() => {
     height: 36px;
   }
   
-  .name {
-    font-size: 0.9rem;
+  .thread-name {
+    font-size: 0.85rem;
   }
   
-  .id {
-    font-size: 0.75rem;
+  .thread-body {
+    font-size: 0.8rem;
+  }
+  
+  .thread-actions-below {
+    padding: 12px 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .action-buttons {
+    gap: 6px;
+  }
+  
+  .draft-button,
+  .hide-button {
+    font-size: 0.7rem;
+    padding: 6px 10px;
+  }
+  
+  .like-button.seal-style {
+    width: 50px;
+    height: 50px;
   }
 }
 </style>
