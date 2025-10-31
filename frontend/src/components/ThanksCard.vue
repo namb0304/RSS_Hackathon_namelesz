@@ -59,7 +59,6 @@ const formatTimestamp = (timestamp) => {
   return new Intl.DateTimeFormat('ja-JP', options).format(date);
 };
 
-const avatarInitial = computed(() => (authorName.value && authorName.value.length > 0) ? authorName.value.charAt(0).toUpperCase() : '無')
 
 const goToChain = () => {
   if (!props.post || !props.post.id) return
@@ -107,21 +106,21 @@ const handleSaveTask = async () => {
     return
   }
   if (isTaskSaved.value) {
-    alert("既にTaskとして保存済みです")
+    alert("既にNextActionとして保存済みです")
     return
   }
   processing.value = true
   try {
     await saveAsTask(props.post.id, user.value.uid)
     isTaskSaved.value = true
-    alert("Taskとして保存しました!")
+    alert("NextActionとして保存しました!")
   } catch (error) {
     console.error("Task保存エラー:", error)
     if (error && error.message && error.message.includes("既に")) {
       isTaskSaved.value = true
-      alert("既にTaskとして保存されています")
+      alert("既にNextActionとして保存されています")
     } else {
-      alert("Task保存に失敗しました")
+      alert("ボトルの保存に失敗しました")
     }
   } finally {
     processing.value = false
@@ -173,9 +172,6 @@ const cardStyle = computed(() => {
       <img :src="letterBackground" alt="" class="letter-background" />
       
       <div class="thread-content">
-        <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
-          <template v-if="!authorAvatar">{{ avatarInitial }}</template>
-        </div>
         
         <div class="thread-text">
           <div class="thread-header">
@@ -207,10 +203,10 @@ const cardStyle = computed(() => {
     <!-- 木製バーのアクションボタン -->
     <div class="thread-actions-below">
       <!-- 封蝋風いいねボタン -->
-      <button @click="handleLike" class="like-button seal-style" title="いいね (10回まで)">
+      <button @click="handleLike" class="like-button seal-style" title="10回までいいね可能">
         <span class="seal-wax">❤️</span>
         <span class="seal-count">{{ props.post.likeCount || 0 }}</span>
-        <span v-if="myLikeCount > 0" class="my-like-indicator">{{ myLikeCount }}</span>
+        <span v-if="myLikeCount > 0" class="my-like-indicator">{{ myLikeCount }}/10</span>
       </button>
       
       <!-- その他のアクションボタン -->
@@ -253,7 +249,7 @@ const cardStyle = computed(() => {
 /* 投稿アイテム - 手紙背景 */
 .thread-item {
   position: relative;
-  padding: 20px 30px;
+  padding: 15px 20px;
   background: transparent;
   border-radius: 0;
   box-shadow: none;
@@ -270,7 +266,7 @@ const cardStyle = computed(() => {
 
 .letter-background {
   position: absolute;
-  top: 50%;
+  top: 54.7%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
@@ -352,26 +348,10 @@ const cardStyle = computed(() => {
   margin-top: -25px;
 }
 
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin-right: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  background-size: cover;
-  background-position: center;
-  background-color: #D7CCC8;
-  color: #5D4037;
-  border: 2px solid #A1887F;
-  flex-shrink: 0;
-  font-family: serif;
-}
 
 .thread-text {
   margin-left: 10px;
+  margin-top: 35px;
   flex-grow: 1;
   min-width: 0;
 }

@@ -58,7 +58,7 @@ const generateBottleStyle = (index, color) => {
   const bobY = Math.random() * 60 + 50
   const rotateDuration = Math.random() * 4 + 5
   const rotateDelay = Math.random() * 3
-  const rotateAngle = Math.random() * 15 + 10
+  const rotateAngle = Math.random() * 15 + 15
   const wiggleDuration = Math.random() * 3 + 3
   const wiggleDelay = Math.random() * 1.5
   const wiggleX = Math.random() * 40 + 30
@@ -681,7 +681,7 @@ onMounted(() => {
   transform: translateX(-50%) scale(1.1);
 }
 .open-btn {
-  background: #FF8C42;
+  background: #93b18a;
   width: auto;
   padding: 10px 20px;
   border-radius: 25px;
@@ -712,7 +712,7 @@ onMounted(() => {
   left: 1.8rem;
   padding: 14px 28px;
   border-radius: 999px;
-  background: #FF8C42;
+  background: #7B9E94;
   color: white;
   font-weight: 600;
   font-size: 0.95rem;
@@ -725,7 +725,7 @@ onMounted(() => {
 }
 .refresh-btn:hover {
   transform: scale(1.08);
-  background: #FF8C44;
+  background: #7B9E94;
   box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
