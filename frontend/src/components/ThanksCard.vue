@@ -27,7 +27,14 @@ const authorAvatar = ref(null)
 const isTaskSaved = ref(false)
 const processing = ref(false)
 
+// 新規追加: 状態管理
+const isSavingTask = ref(false)
+const isHiding = ref(false)
+const isSavedAsTask = ref(false)
+const isHiddenPost = ref(false)
+
 onMounted(async () => {
+  // 著者情報の取得
   if (!props.post.isAnonymous) {
     try {
       const profile = await getUserProfile(props.post.authorId)
@@ -82,12 +89,12 @@ const handleLike = async () => {
   }
   processing.value = true
   try {
-    if (props.post.likeCount === undefined) props.post.likeCount = 0;
-    props.post.likeCount++;
-    if (!props.post.likesMap) props.post.likesMap = {};
-    if (!props.post.likesMap[user.value.uid]) props.post.likesMap[user.value.uid] = 0;
-    props.post.likesMap[user.value.uid]++;
-    await likePost(props.post.id, user.value.uid);
+    if (props.post.likeCount === undefined) props.post.likeCount = 0
+    props.post.likeCount++
+    if (!props.post.likesMap) props.post.likesMap = {}
+    if (!props.post.likesMap[user.value.uid]) props.post.likesMap[user.value.uid] = 0
+    props.post.likesMap[user.value.uid]++
+    await likePost(props.post.id, user.value.uid)
   } catch (error) {
     console.error("いいね処理中にエラー:", error)
     if (props.post.likeCount !== undefined) props.post.likeCount--;
