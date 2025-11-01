@@ -39,8 +39,10 @@ build:
 serve:
 	docker run -it -d -p 8080:80 --name thanks-relay-prod-instance thanks-relay-prod
 
+
 # 不要なコンテナやイメージをクリーンアップ
 clean:
-	docker compose down --volumes --remove-orphans
+	docker compose down --volumes --remove-orphans --rmi local
 	docker rm -f thanks-relay-prod-instance || true
 	docker rmi thanks-relay-prod || true
+	docker image prune -f
