@@ -21,6 +21,14 @@ const uid = computed(() => auth.currentUser?.uid)
 const fetchFunctions = {
   myPosts: getMyPosts,
   connected: getMyConnectedPosts,
+  unFinishedConnected: async (uid) => {
+    const allConnected = await getMyConnectedPosts(uid)
+    return allConnected.filter(post => !post.isFinished)
+  },
+  finishedConnected: async (uid) => {
+    const allConnected = await getMyConnectedPosts(uid)
+    return allConnected.filter(post => post.isFinished)
+  },
   liked: getMyLikedPosts
 }
 const switchTab = async (tabName) => {
@@ -91,8 +99,9 @@ onMounted(async () => {
 
       <nav class="tabs">
         <a @click.prevent="switchTab('myPosts')" :class="{ active: activeTab === 'myPosts' }">感謝の投稿 (Thanks)</a>
-        <a @click.prevent="switchTab('connected')" :class="{ active: active-tab === 'connected' }">繋げた投稿 (Action)</a>
-        <a @click.prevent="switchTab('liked')" :class="{ active: active-tab === 'liked' }">いいね</a>
+        <a @click.prevent="switchTab('unFinishedConnected')" :class="{ active: activeTab === 'unFinishedConnected' }">シェアした投稿 (Shared)</a>
+        <a @click.prevent="switchTab('finishedConnected')" :class="{ active: activeTab === 'finishedConnected' }">完了した投稿 (Finished)</a>
+        <a @click.prevent="switchTab('liked')" :class="{ active: activeTab === 'liked' }">いいね</a>
       </nav>
 
       <div class="content-area">
