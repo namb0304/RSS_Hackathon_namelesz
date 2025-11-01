@@ -27,3 +27,9 @@ export const loginWithEmail = async (email, password) => {
 export const logout = async () => {
   return await signOut(auth);
 };
+
+export function watchAuthState(callback) {
+  onAuthStateChanged(auth, (user) => {
+    callback(user);
+  });
+}

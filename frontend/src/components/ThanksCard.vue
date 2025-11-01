@@ -1,23 +1,31 @@
 <script setup>
 import { defineProps, ref, onMounted, computed } from 'vue'
-import { getUserProfile, getChain, likePost, saveAsTask, isPostSavedAsTask, hidePost, isPostHidden } from '../firebaseService'
-import { isPostFormModalOpen, replyToPost } from '../store/modal'
+import { getUserProfile, likePost, saveAsTask, hidePost } from '../firebaseService'
 import { user } from '../store/user'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
+
+import letterBackground from '../assets/thanks-card.png'
 
 const props = defineProps({
   post: {
     type: Object,
     required: true
+  },
+  bottleColor: {
+    type: Object,
+    default: null
+  },
+  isSelected: {
+    type: Boolean,
+    default: false
   }
 })
 
 const router = useRouter()
 const authorName = ref('匿名ユーザー')
 const authorAvatar = ref(null)
-const actionPreviews = ref([])
-const isLoadingActions = ref(true)
-const allChildActions = ref([])
+const isTaskSaved = ref(false)
+const processing = ref(false)
 
 // 新規追加: 状態管理
 const isSavingTask = ref(false)
@@ -37,34 +45,8 @@ onMounted(async () => {
     } catch (error) {
       console.error("ユーザープロフィールの取得に失敗:", error)
     }
-  }
-
-  // Task保存状態と非表示状態を確認
-  if (user.value) {
-    try {
-      isSavedAsTask.value = await isPostSavedAsTask(props.post.id, user.value.uid)
-      isHiddenPost.value = await isPostHidden(props.post.id, user.value.uid)
-    } catch (error) {
-      console.error("状態確認に失敗:", error)
-    }
-  }
-
-  // 子アクションの取得
-  if (props.post.actionCount > 0) {
-    try {
-      const actions = await getChain(props.post.id)
-
-      if (actions) {
-        allChildActions.value = actions
-        actionPreviews.value = actions.slice(0, 2)
-      }
-    } catch (error) {
-      console.error("アクションの取得に失敗:", error)
-    } finally {
-      isLoadingActions.value = false
-    }
   } else {
-    isLoadingActions.value = false
+    authorName.value = '匿名ユーザー'
   }
 })
 
@@ -82,38 +64,30 @@ const formatTimestamp = (timestamp) => {
   if (diffDays < 7) return `${diffDays}日前`;
   const options = { year: 'numeric', month: 'long', day: 'numeric' };
   return new Intl.DateTimeFormat('ja-JP', options).format(date);
+};
+
+
+const goToChain = () => {
+  if (!props.post || !props.post.id) return
+  router.push({ name: 'chain', params: { id: props.post.id } })
 }
-
-const avatarInitial = computed(() => authorName.value.charAt(0).toUpperCase())
-
-const goToDetail = () => router.push({ name: 'chain', params: { id: props.post.id } })
-
-const handleReplyClick = () => {
-  replyToPost.value = props.post
-  isPostFormModalOpen.value = true
-}
-
-const remainingActions = computed(() => {
-  const total = allChildActions.value.length
-  const shown = actionPreviews.value.length
-  return total > shown ? total - shown : 0
-})
 
 const myLikeCount = computed(() => {
-  if (!user.value || !props.post.likesMap) return 0
-  return props.post.likesMap[user.value.uid] || 0
-})
+  if (!user.value || !props.post.likesMap) return 0;
+  return props.post.likesMap[user.value.uid] || 0;
+});
 
-// いいね機能
 const handleLike = async () => {
   if (!user.value) {
-    alert("いいねするにはログインが必要です。")
+    router.push('/login')
     return
   }
+  if (processing.value) return
   if (myLikeCount.value >= 10) {
     alert("いいねは一投稿につき10回までです！")
     return
   }
+  processing.value = true
   try {
     if (props.post.likeCount === undefined) props.post.likeCount = 0
     props.post.likeCount++
@@ -123,370 +97,603 @@ const handleLike = async () => {
     await likePost(props.post.id, user.value.uid)
   } catch (error) {
     console.error("いいね処理中にエラー:", error)
-    props.post.likeCount--
-    props.post.likesMap[user.value.uid]--
+    if (props.post.likeCount !== undefined) props.post.likeCount--;
+    if (props.post.likesMap && user.value && props.post.likesMap[user.value.uid]) {
+      props.post.likesMap[user.value.uid] = Math.max(0, props.post.likesMap[user.value.uid] - 1)
+    }
     alert("いいねに失敗しました。")
+  } finally {
+    processing.value = false
   }
 }
 
-// Task保存機能
-const handleSaveAsTask = async () => {
+const handleSaveTask = async () => {
   if (!user.value) {
-    alert("タスク保存にはログインが必要です。")
+    router.push('/login')
     return
   }
-
-  if (isSavedAsTask.value) {
-    alert("既にTaskとして保存されています。")
+  if (isTaskSaved.value) {
+    alert("既にNextActionとして保存済みです")
     return
   }
-
-  if (isSavingTask.value) return
-
-  isSavingTask.value = true
+  processing.value = true
   try {
     await saveAsTask(props.post.id, user.value.uid)
-    isSavedAsTask.value = true
-    alert("タスクとして保存しました！")
+    isTaskSaved.value = true
+    alert("NextActionとして保存しました!")
   } catch (error) {
-    console.error("タスク保存に失敗:", error)
-    if (error.message === "既にTaskとして保存されています") {
-      isSavedAsTask.value = true
-      alert("既にTaskとして保存されています。")
+    console.error("Task保存エラー:", error)
+    if (error && error.message && error.message.includes("既に")) {
+      isTaskSaved.value = true
+      alert("既にNextActionとして保存されています")
     } else {
-      alert("タスク保存に失敗しました。")
+      alert("ボトルの保存に失敗しました")
     }
   } finally {
-    isSavingTask.value = false
+    processing.value = false
   }
 }
 
-// 非表示機能（自分に関係ない投稿を非表示にする）
-const handleHidePost = async () => {
+const handleHide = async () => {
   if (!user.value) {
-    alert("非表示にするにはログインが必要です。")
+    router.push('/login')
     return
   }
-
-  // 自分の投稿は非表示にできない
-  if (props.post.authorId === user.value.uid) {
-    alert("自分の投稿は非表示にできません。")
-    return
-  }
-
-  if (!confirm("この投稿を非表示にしますか？\n（自分のタイムラインに表示されなくなります）")) {
-    return
-  }
-
-  if (isHiding.value) return
-
-  isHiding.value = true
+  if (!confirm("この投稿を非表示にしますか?\n(以降表示されなくなります)")) return
+  processing.value = true
   try {
     await hidePost(props.post.id, user.value.uid)
-    isHiddenPost.value = true
-    alert("投稿を非表示にしました。")
-    // 親コンポーネントに通知してリストから削除させる場合は emit を使用
-    // emit('post-hidden', props.post.id)
+    alert("投稿を非表示にしました")
   } catch (error) {
-    console.error("非表示処理に失敗:", error)
-    alert("非表示に失敗しました。")
+    console.error("非表示エラー:", error)
+    alert("非表示に失敗しました")
   } finally {
-    isHiding.value = false
+    processing.value = false
   }
 }
 
-// Context情報の計算
-const contextInfo = computed(() => {
-  return {
-    depth: props.post.depth || 0,
-    hasParent: !!props.post.parentPostId,
-    chainLength: allChildActions.value.length
+const cardStyle = computed(() => {
+  const style = {}
+  
+  if (props.bottleColor) {
+    style['--card-border-color'] = props.bottleColor.border
+    style['--card-shadow'] = props.bottleColor.shadow
   }
+  
+  return style
 })
+
 </script>
 
 <template>
-  <div class="card thanks-card">
-    <div class="card-content-area">
-      <div class="card-header">
-        <div class="avatar" :style="authorAvatar ? `background-image: url(${authorAvatar})` : ''">
-          <template v-if="!authorAvatar">{{ avatarInitial }}</template>
-        </div>
-        <div class="user-info">
-          <div class="name">{{ authorName }}</div>
-          <div class="id">@{{ authorName.toLowerCase().replace(/\s/g, '') }} · {{ formatTimestamp(props.post.timestamp) }}</div>
-        </div>
-        <span class="post-type">Thanks</span>
-      </div>
-
-      <!-- Context表示エリア -->
-      <div class="context-info" v-if="contextInfo.hasParent || contextInfo.chainLength > 0">
-        <div class="context-item" v-if="contextInfo.hasParent">
-          <span class="context-icon">🔗</span>
-          <span class="context-text">連鎖投稿 (Lv.{{ contextInfo.depth }})</span>
-        </div>
-        <div class="context-item" v-if="contextInfo.chainLength > 0">
-          <span class="context-icon">🌱</span>
-          <span class="context-text">{{ contextInfo.chainLength }}件の派生</span>
-        </div>
-      </div>
-
-      <div class="card-body">
-        <p>{{ props.post.text }}</p>
-        <div v-if="props.post.feeling" class="feeling-quote">
-          "{{ props.post.feeling }}"
-        </div>
-        <div v-if="props.post.tags && props.post.tags.length > 0" class="tags-container">
-          <span v-for="tag in props.post.tags" :key="tag" class="tag">#{{ tag }}</span>
-        </div>
-      </div>
-
-      <div class="branch-preview" v-if="allChildActions.length > 0">
-        <div class="preview-title">
-          <span class="preview-icon">🔄</span>
-          <span>Next Action ({{ allChildActions.length }})</span>
-        </div>
-
-        <div v-if="isLoadingActions" class="preview-loading">
-          <div class="loading-spinner"></div>
-          <span>Loading...</span>
-        </div>
-
-        <div v-else-if="actionPreviews.length > 0" class="action-previews">
-          <div v-for="action in actionPreviews" :key="action.id" class="action-preview-item">
-            {{ action.text }}
+  <div class="post-wrapper">
+    <div 
+      class="thread-item thanks-post" 
+      role="article" 
+      :style="cardStyle"
+      :class="{ 
+        'with-color': bottleColor,
+        'highlight': isSelected,
+      }"
+    >
+      <img :src="letterBackground" alt="" class="letter-background" />
+      
+      <div class="thread-content">
+        
+        <div class="thread-text">
+          <div class="thread-header">
+            <span class="thread-name">{{ authorName }}</span>
+            <span class="thread-time">{{ formatTimestamp(props.post.timestamp) }}</span>
           </div>
-
-          <RouterLink
-            v-if="remainingActions > 0"
-            :to="{ name: 'chain', params: { id: props.post.id } }"
-            class="more-actions-link"
-            @click.stop
-          >
-            他{{ remainingActions }}件のアクションを見る
-          </RouterLink>
-        </div>
-
-        <div v-else class="no-actions">
-          <p>アクションの読み込みに失敗しました</p>
+          
+          <div class="thread-body">
+            {{ props.post.text }}
+          </div>
+          
+          <div v-if="props.post.feeling" class="thread-feeling">
+            "{{ props.post.feeling }}"
+          </div>
+          
+          <div v-if="props.post.tags && props.post.tags.length > 0" class="thread-tags">
+            <span 
+              v-for="tag in props.post.tags" 
+              :key="tag" 
+              class="tag"
+            >
+              #{{ tag }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- フッター部分 -->
-    <div class="card-footer">
-      <div class="metrics">
-        <button @click="handleLike" class="like-button" :title="`10回までいいねできます`">
-          <span>❤️ {{ props.post.likeCount || 0 }}</span>
-          <span v-if="myLikeCount > 0" class="my-like-count-indicator">
-            ({{ myLikeCount }}/10)
-          </span>
-        </button>
-      </div>
-
+    <!-- 木製バーのアクションボタン -->
+    <div class="thread-actions-below">
+      <!-- 封蝋風いいねボタン -->
+      <button @click="handleLike" class="like-button seal-style" title="10回までいいね可能">
+        <span class="seal-wax">❤️</span>
+        <span class="seal-count">{{ props.post.likeCount || 0 }}</span>
+        <span v-if="myLikeCount > 0" class="my-like-indicator">{{ myLikeCount }}/10</span>
+      </button>
+      
+      <!-- その他のアクションボタン -->
       <div class="action-buttons">
-        <!-- Task保存ボタン -->
-        <button
-          @click.stop="handleSaveAsTask"
-          class="action-btn task-btn"
-          :class="{ saved: isSavedAsTask }"
-          :disabled="isSavingTask || isSavedAsTask"
-          :title="isSavedAsTask ? '保存済み' : 'Taskとして保存'"
-        >
-          <span v-if="isSavingTask">⏳</span>
-          <span v-else-if="isSavedAsTask">✅</span>
-          <span v-else>📌</span>
+        <button @click="goToChain" class="draft-button" title="連鎖マップを見る">
+          <span class="button-icon">🌳</span>
+          <span>マップ</span>
         </button>
-
-        <!-- 非表示ボタン -->
-        <button
-          @click.stop="handleHidePost"
-          class="action-btn hide-btn"
-          :class="{ hidden: isHiddenPost }"
-          :disabled="isHiding || isHiddenPost || props.post.authorId === user?.uid"
-          :title="isHiddenPost ? '非表示済み' : '自分のタイムラインに表示しない'"
+        
+        <button 
+          @click="handleSaveTask" 
+          class="draft-button task-style"
+          :class="{ saved: isTaskSaved }"
+          :title="isTaskSaved ? 'Task保存済み' : 'Taskとして保存'"
         >
-          <span v-if="isHiding">⏳</span>
-          <span v-else-if="isHiddenPost">👁️‍🗨️</span>
-          <span v-else>🚫</span>
+          <span class="button-icon">{{ isTaskSaved ? '✓' : '📌' }}</span>
+          <span>{{ isTaskSaved ? '保存済み' : 'ボトルを保管' }}</span>
         </button>
-
-        <!-- 続けるボタン -->
-        <button @click.stop="handleReplyClick" class="reply-button">続ける</button>
-
-        <!-- 詳細を見るボタン -->
-        <button @click.stop="goToDetail" class="detail-button">詳細</button>
+        
+        <button @click="handleHide" class="hide-button" title="この投稿を非表示">
+          <span class="button-icon">🌊</span>
+          <span>遠くに流す</span>
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.card { background-color: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s ease, box-shadow 0.2s ease; margin-bottom: 16px; display: flex; flex-direction: column; }
-.card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-.thanks-card { border-left: 4px solid #FF8C42; }
-.card-content-area { padding: 16px; flex-grow: 1; }
-.card-header { display: flex; align-items: center; margin-bottom: 12px; }
-.avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #f0f0f0; margin-right: 12px; display: flex; justify-content: center; align-items: center; color: #555; font-weight: bold; background-size: cover; background-position: center; }
-.user-info { flex-grow: 1; }
-.name { font-weight: bold; color: #333; font-size: 1rem; }
-.id { color: #666; font-size: 0.8rem; }
-.post-type { background-color: #FF8C42; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
-
-/* Context情報 */
-.context-info {
+/* 投稿とボタンのラッパー */
+.post-wrapper {
   display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-.context-item {
-  display: flex;
+  flex-direction: column;
   align-items: center;
-  background-color: #f0f7ff;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  color: #2196F3;
-}
-.context-icon {
-  margin-right: 4px;
-}
-.context-text {
-  font-weight: 500;
+  gap: 10px;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-.card-body { margin-bottom: 16px; }
-.card-body p { color: #333; line-height: 1.5; margin-top: 0; margin-bottom: 12px; }
-.feeling-quote { font-style: italic; color: #555; margin: 12px 0; border-left: 3px solid #FF8C42; padding-left: 12px; }
-.tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.tag { background-color: #f0f2f5; color: #666; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; }
-.branch-preview { background-color: #f9f9f9; border-radius: 8px; padding: 12px; margin-top: 12px; }
-.preview-title { display: flex; align-items: center; margin-bottom: 12px; font-weight: 500; color: #444; }
-.preview-icon { margin-right: 6px; }
-.preview-loading { display: flex; align-items: center; justify-content: center; padding: 10px 0; color: #666; font-size: 0.9rem; }
-.loading-spinner { width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #FF8C42; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.action-previews { margin-bottom: 8px; }
-.action-preview-item { background-color: white; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); line-height: 1.4; border-left: 3px solid #2196F3; font-size: 0.95rem; color: #333; }
-.more-actions-link { display: block; text-align: center; color: #2196F3; font-size: 0.85rem; padding: 6px; text-decoration: none; }
-.more-actions-link:hover { text-decoration: underline; }
-.no-actions { text-align: center; padding: 10px; color: #666; font-style: italic; font-size: 0.9rem; }
-
-/* フッター */
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: #f9fafb;
-  border-top: 1px solid #f0f0f0;
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-}
-.metrics {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-.like-button {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font-family: inherit;
+/* 投稿アイテム - 手紙背景 */
+.thread-item {
+  position: relative;
+  padding: 15px 20px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-.my-like-count-indicator {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  margin-left: 6px;
-  font-weight: normal;
-  background-color: #f3f4f6;
-  padding: 2px 6px;
-  border-radius: 8px;
-}
-
-/* アクションボタンエリア */
-.action-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-/* Task保存・非表示ボタン */
-.action-btn {
-  background: white;
-  border: 1px solid #e0e0e0;
-  padding: 6px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  transition: all 0.2s;
+  transition: transform 0.2s, filter 0.3s ease;
+  min-height: 350px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 7 / 8;
 }
 
-.action-btn:hover:not(:disabled) {
-  background-color: #f5f5f5;
+.letter-background {
+  position: absolute;
+  top: 54.7%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  object-fit: fill;
+  z-index: 0;
+  pointer-events: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.thread-item.with-color {
+  transition: opacity 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
+}
+
+.thread-item.with-color:not(.highlight) {
+  outline: none;
+  box-shadow: none;
+}
+
+.thread-item.with-color:not(.highlight)::before {
+  opacity: 0;
+}
+
+.thread-item.with-color.highlight {
+  outline: 4px solid var(--card-border-color);
+  outline-offset: -8px;
+  box-shadow: 
+    0 0 20px var(--card-shadow),
+    0 0 40px var(--card-shadow),
+    inset 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+.thread-item.with-color.highlight::before {
+  opacity: 0.8;
+}
+
+.thread-item.with-color::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0;
+  pointer-events: none;
+  box-shadow: 
+    inset 0 0 20px var(--card-shadow),
+    inset 0 0 40px var(--card-shadow);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.thread-item.highlight {
+  transform: scale(1.05);
+  filter: brightness(1.05);
+}
+
+.thread-item.with-color.highlight {
+  outline: 4px solid var(--card-border-color);
+  outline-offset: -8px;
+  box-shadow: 
+    0 0 20px var(--card-shadow),
+    0 0 40px var(--card-shadow),
+    inset 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+.thread-item.with-color.highlight::before {
+  opacity: 0.8;
+}
+
+.thread-content {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  z-index: 1;
+  width: 58%;
+  max-width: 100%;
+  margin-top: -25px;
+}
+
+
+.thread-text {
+  margin-left: 10px;
+  margin-top: 35px;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.thread-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.3);
+  gap: 8px;
+}
+
+.thread-name {
+  font-weight: bold;
+  color: #3C2F2F;
+  font-family: serif;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.thread-time {
+  color: #8B7355;
+  font-size: 0.65em;
+  font-family: serif;
+  font-style: italic;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.thread-body {
+  color: #3C2F2F;
+  line-height: 1.7;
+  font-family: serif;
+  font-size: 0.85rem;
+  text-align: left;
+  letter-spacing: 0.02em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.thread-feeling {
+  font-style: italic;
+  color: #5C4A3A;
+  margin: 8px 0;
+  border-left: 3px solid #D4A574;
+  padding-left: 10px;
+  font-size: 0.8rem;
+  font-family: serif;
+  background: rgba(212, 165, 116, 0.1);
+  padding: 6px 10px;
+  border-radius: 2px;
+  word-wrap: break-word;
+}
+
+.thread-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(139, 115, 85, 0.3);
+}
+
+.tag {
+  background: transparent;
+  color: #8B7355;
+  padding: 2px 4px;
+  border-radius: 0;
+  font-size: 0.75em;
+  font-family: 'Courier New', monospace;
+  font-style: italic;
+  border: none;
+  position: relative;
+  white-space: nowrap;
+}
+
+/* 手紙の下に配置されるアクションボタン - 木製の机モチーフ */
+.thread-actions-below {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 320px;
+  padding: 16px 24px;
+  background:
+    linear-gradient(180deg,
+      rgba(92, 74, 58, 0.95) 0%,
+      rgba(76, 60, 46, 0.98) 50%,
+      rgba(60, 47, 35, 1) 100%
+    );
+  border-radius: 8px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+  border: 1px solid rgba(60, 47, 35, 0.8);
+}
+
+/* 木目テクスチャのオーバーレイ */
+.thread-actions-below::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.05) 2px,
+      rgba(0, 0, 0, 0.05) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(139, 115, 85, 0.1) 0%,
+      rgba(92, 74, 58, 0.1) 10%,
+      rgba(76, 60, 46, 0.1) 20%,
+      rgba(139, 115, 85, 0.1) 30%
+    );
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* 木の節の装飾 */
+.thread-actions-below::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 20px;
+  width: 30px;
+  height: 20px;
+  background: radial-gradient(ellipse at center,
+    rgba(0, 0, 0, 0.15) 0%,
+    rgba(0, 0, 0, 0.08) 40%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 封蝋風いいねボタン */
+.like-button.seal-style {
+  background: radial-gradient(circle, #C85A54 0%, #A84840 100%);
+  border: none;
+  padding: 6px 12px;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.like-button.seal-style::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.like-button.seal-style:hover {
+  background: radial-gradient(circle, #D86A64 0%, #B85850 100%);
   transform: scale(1.05);
 }
 
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.seal-wax {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-.task-btn:hover:not(:disabled) {
-  border-color: #4CAF50;
-}
-
-.task-btn.saved {
-  background-color: #e8f5e9;
-  border-color: #4CAF50;
-}
-
-.hide-btn:hover:not(:disabled) {
-  border-color: #ff9800;
-}
-
-.hide-btn.hidden {
-  background-color: #fafafa;
-  border-color: #bdbdbd;
-}
-
-.reply-button {
-  background-color: #FF8C42;
-  color: white;
-  border: none;
-  border-radius: 16px;
-  padding: 6px 16px;
-  font-size: 0.9rem;
+.seal-count {
+  font-size: 0.7rem;
   font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.reply-button:hover {
-  background-color: #EE965F;
+  font-family: serif;
 }
 
-.detail-button {
-  background-color: #2196F3;
+.my-like-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #D32F2F;
   color: white;
-  border: none;
-  border-radius: 16px;
-  padding: 6px 16px;
-  font-size: 0.9rem;
+  font-size: 0.65rem;
+  padding: 2px 5px;
+  border-radius: 10px;
   font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.detail-button:hover {
-  background-color: #1976D2;
+/* アクションボタンコンテナ */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+  z-index: 10;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+/* ボトルを保管ボタン */
+.draft-button {
+  background: linear-gradient(to bottom, #F5E6D3 0%, #E8D4B8 100%);
+  border: 2px dashed #8B7355;
+  color: #5C4A3A;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.draft-button:hover {
+  background: linear-gradient(to bottom, #FFF8EC 0%, #F5E6D3 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.draft-button.task-style.saved {
+  background: linear-gradient(to bottom, #E8F5E9 0%, #C8E6C9 100%);
+  border: 2px solid #66BB6A;
+  color: #2E7D32;
+}
+
+.draft-button.task-style.saved:hover {
+  background: linear-gradient(to bottom, #F1F8E9 0%, #DCEDC8 100%);
+}
+
+/* 遠くに流すボタン */
+.hide-button {
+  background: linear-gradient(to bottom, #D4E8F0 0%, #B8D8E8 100%);
+  border: 2px solid #5B8FA3;
+  color: #2C5F75;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.hide-button:hover {
+  background: linear-gradient(to bottom, #E0F0F8 0%, #D0E8F0 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.button-icon {
+  font-size: 0.9rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .thread-item {
+    min-height: 240px;
+    padding: 30px 20px;
+  }
+  
+  .thread-content {
+    width: 65%;
+  }
+  
+  .avatar {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .thread-name {
+    font-size: 0.85rem;
+  }
+  
+  .thread-body {
+    font-size: 0.8rem;
+  }
+  
+  .thread-actions-below {
+    padding: 12px 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .action-buttons {
+    gap: 6px;
+  }
+  
+  .draft-button,
+  .hide-button {
+    font-size: 0.7rem;
+    padding: 6px 10px;
+  }
+  
+  .like-button.seal-style {
+    width: 50px;
+    height: 50px;
+  }
 }
 </style>

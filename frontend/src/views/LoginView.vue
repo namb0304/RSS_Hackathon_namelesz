@@ -15,7 +15,7 @@ const handleLogin = async () => {
   try {
     const userCredential = await loginWithEmail(email.value, password.value)
     console.log('ログインに成功しました！:', userCredential.user)
-    router.push('/main')
+    router.push('/')
   } catch (error) {
     console.error('ログインエラー:', error.code)
     switch (error.code) {
