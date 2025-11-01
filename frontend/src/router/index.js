@@ -16,6 +16,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'main',
+      alias: '/main',
       component: MainView
     },
     // ★★★ マイページをMainViewの子供から独立させる ★★★
